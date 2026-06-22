@@ -1,0 +1,14 @@
+.next
+.test-dist
+node_modules
+out
+dist
+coverage
+*.log
+*.zip
+*.tsbuildinfo
+test-results
+playwright-report
+screenshots
+.env*
+!.env.local.example
