@@ -34,7 +34,7 @@
 ### H002: stock-trend-mvp専用GitHub Private repository URLを指定する
 
 - Blocks: G003 専用GitHub Private repositoryへのpush
-- 状態: open
+- 状態: resolved
 - 推奨デフォルト: GitHubで空のPrivate repositoryを作成し、そのHTTPS URLを渡す。
 - 必要な情報:
   - 例: `https://github.com/kyou041849-cyber/stock-trend-mvp.git`
@@ -45,3 +45,9 @@
   - `AI_Agent.git` へはpushしない方針。
 - 注意:
   - 誤ったリポジトリへのpushを避けるため、URL未指定の状態では `git remote rename`、`git remote add origin`、`git push` を実行しません。
+
+解消結果:
+
+- provided URL: `https://github.com/kyou041849-cyber/stock-trend-mvp.git`
+- `origin` を専用リポジトリへ設定済み
+- `main` と `beta-0.1.0` をpush済み

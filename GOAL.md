@@ -114,3 +114,34 @@ Goal map note:
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
 | G003 | human-needed | manager | human-decision | dedicated repository URL | 専用GitHub Private repositoryへのpush | Request still contains `<新しいGitHubリポジトリURL>` placeholder; see [goals/G003_STOCK_TREND_REMOTE_PUSH.md](goals/G003_STOCK_TREND_REMOTE_PUSH.md) |
+
+## G003 Completion Update
+
+Status: completed
+
+Outcome: `stock-trend-mvp` 専用GitHub Private repositoryへ `main` と `beta-0.1.0` をpush済み。
+
+Remote setup:
+
+- `origin`: `https://github.com/kyou041849-cyber/stock-trend-mvp.git`
+- `ai-agent-hub`: `https://github.com/kyou041849-cyber/AI_Agent.git`
+- `AI_Agent.git` へはpushしていない。
+
+Validation before push:
+
+- `npm.cmd run typecheck`: success
+- `npm.cmd run test`: success
+- `npm.cmd run build`: success
+- `npm.cmd run test:e2e -- --reporter=line`: success, 3 passed
+
+Push evidence:
+
+- `git push -u origin main`: success
+- `git push origin beta-0.1.0`: success
+- `beta-0.1.0` remains on `7fb1e793f2dd0b5d9ba9996054a021997471dbfe`
+
+Goal map note:
+
+| ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
+|---|---|---|---|---|---|---|
+| G003 | accepted | manager | codex-verifiable | none | 専用GitHub Private repositoryへのpush | main and beta tag pushed to dedicated origin; final record commit pending push |

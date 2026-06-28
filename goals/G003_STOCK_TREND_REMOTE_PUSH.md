@@ -2,7 +2,7 @@
 
 ## Status
 
-human-needed
+completed
 
 ## Objective
 
@@ -15,6 +15,14 @@ human-needed
 - beta tag: `beta-0.1.0` -> `7fb1e793f2dd0b5d9ba9996054a021997471dbfe`
 - current origin: `https://github.com/kyou041849-cyber/AI_Agent.git`
 - status: clean before record
+
+## Completed Remote Setup
+
+- `ai-agent-hub`: `https://github.com/kyou041849-cyber/AI_Agent.git`
+- `origin`: `https://github.com/kyou041849-cyber/stock-trend-mvp.git`
+- pushed branch: `main`
+- pushed tag: `beta-0.1.0`
+- `AI_Agent.git` push: not performed
 
 ## Decision
 
@@ -55,3 +63,41 @@ After that, G003 can continue with:
 4. Run safety checks and validation.
 5. Push `main`.
 6. Push `beta-0.1.0`.
+
+## Completion Evidence
+
+Remote setup:
+
+```text
+ai-agent-hub https://github.com/kyou041849-cyber/AI_Agent.git
+origin       https://github.com/kyou041849-cyber/stock-trend-mvp.git
+```
+
+Remote emptiness check before push:
+
+- `git ls-remote --heads origin`: empty
+- `git ls-remote --tags origin`: empty
+
+Validation before push:
+
+- `npm.cmd run typecheck`: success
+- `npm.cmd run test`: success
+- `npm.cmd run build`: success
+- `npm.cmd run test:e2e -- --reporter=line`: success, 3 passed
+
+Push results:
+
+- `git push -u origin main`: success
+- `git push origin beta-0.1.0`: success
+
+Safety checks:
+
+- `.env.local`: does not exist and is not tracked
+- generated files such as `node_modules`, `.next`, `screenshots`, ZIP, and log files: not tracked
+- secret scan: no real API key found; matches are examples, environment variable names, property names, test fake values, or `risk` / `task` false positives
+- force push: not used
+- `beta-0.1.0`: not moved
+
+Remaining action:
+
+- Push this completion-record commit to `origin/main`.
