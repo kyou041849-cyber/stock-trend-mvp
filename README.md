@@ -65,6 +65,31 @@ PlaywrightのUIモードで確認したい場合:
 npm run test:e2e:ui
 ```
 
+## GitHub Actions CI
+
+`main` へのpushとpull requestでGitHub Actions CIが動きます。
+
+CIで実行する内容:
+
+- `pnpm install --frozen-lockfile`
+- `pnpm run typecheck`
+- `pnpm run test`
+- `pnpm run build`
+- `pnpm run test:e2e -- --reporter=line`
+
+CIは `pnpm-lock.yaml` を基準に依存関係を入れ、Playwrightの `msedge` をインストールしてE2E smoke testを実行します。実LLM APIは呼びません。APIキーやGitHub Secretsも不要です。
+
+CIが失敗した場合は、まずローカルで次を実行して再現してください。
+
+```powershell
+npm run typecheck
+npm run test
+npm run build
+npm run test:e2e -- --reporter=line
+```
+
+E2Eの失敗時は、GitHub Actionsのartifactに `test-results` や `playwright-report` が保存される場合があります。これらはGit管理対象には含めません。
+
 ## データ保存とバックアップ
 
 データ保存はブラウザのlocalStorageです。サーバーDBは使っていません。

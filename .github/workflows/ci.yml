@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Typecheck, test, build, and E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      CI: true
+      NEXT_TELEMETRY_DISABLED: "1"
+      E2E_PORT: "3010"
+      # CI uses Mock-only flows. Do not require or expose real LLM/API secrets here.
+      OPENAI_API_KEY: ""
+      OPENAI_MODEL: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps msedge
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Unit tests
+        run: pnpm run test
+
+      - name: Build
+        run: pnpm run build
+
+      - name: E2E smoke tests
+        run: pnpm run test:e2e -- --reporter=line
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            test-results
+            playwright-report
+          if-no-files-found: ignore

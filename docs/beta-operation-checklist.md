@@ -8,6 +8,7 @@
 - `npm run test` が成功している
 - `npm run build` が成功している
 - `npm run test:e2e` が成功している
+- GitHub Actions CIが `main` の最新commitで成功している
 - Gitの作業ツリーがcleanである
 - `origin` が `stock-trend-mvp` 専用リポジトリを向いている
 - `beta-0.1.0` タグが存在する
@@ -110,3 +111,22 @@
 - `npm run build` が成功している
 - `npm run test:e2e` が成功している
 - `--force` pushを使わない
+
+## GitHub Actions CI確認
+
+- CIは `main` へのpushとpull requestで実行される
+- CIは `pnpm-lock.yaml` を使って依存関係を入れる
+- CIは `typecheck`、単体テスト、build、E2E smoke testを実行する
+- CIでは実LLM APIを呼ばない
+- CIではAPIキーやGitHub Secretsを要求しない
+- CIが失敗したら、まずローカルで次を実行する
+
+```powershell
+npm run typecheck
+npm run test
+npm run build
+npm run test:e2e -- --reporter=line
+```
+
+- E2E失敗時はGitHub Actionsのartifactに `test-results` や `playwright-report` が保存される場合がある
+- artifactやテスト結果ディレクトリはGit管理に含めない
