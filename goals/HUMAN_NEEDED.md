@@ -28,3 +28,20 @@
 
 - GitHub Actions CI追加は次フェーズ。
 - リモートのREADMEや既存ファイルを統合する場合は別Goalで扱う。
+
+## G003 Now Needed
+
+### H002: stock-trend-mvp専用GitHub Private repository URLを指定する
+
+- Blocks: G003 専用GitHub Private repositoryへのpush
+- 状態: open
+- 推奨デフォルト: GitHubで空のPrivate repositoryを作成し、そのHTTPS URLを渡す。
+- 必要な情報:
+  - 例: `https://github.com/kyou041849-cyber/stock-trend-mvp.git`
+  - ただし、これは例であり、実際に作成済みの専用リポジトリURLが必要です。
+- Evidence:
+  - 最新のG003依頼ではURL欄が `<新しいGitHubリポジトリURL>` のまま。
+  - 現在の `origin` はまだ `https://github.com/kyou041849-cyber/AI_Agent.git`。
+  - `AI_Agent.git` へはpushしない方針。
+- 注意:
+  - 誤ったリポジトリへのpushを避けるため、URL未指定の状態では `git remote rename`、`git remote add origin`、`git push` を実行しません。

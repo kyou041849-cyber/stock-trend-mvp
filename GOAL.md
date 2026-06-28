@@ -95,3 +95,22 @@ Goal map status: G001 blocked, G002 human-needed
 Parent goal status: partially complete, remote configured but push blocked by unrelated remote history
 Human-needed checkpoint status: open
 Gap review / refreshed Gap-Closing Goal Map needed: no
+
+## G003 Update
+
+Status: human-needed
+
+Outcome: 専用GitHub Private repositoryへのpushは未実行。依頼内の新しいリポジトリURLが `<新しいGitHubリポジトリURL>` のままで、実URLが確定していないため停止。
+
+Safety decision:
+
+- `AI_Agent.git` へはpushしない。
+- URL未指定のため `git remote rename`、`git remote add origin`、`git push` は実行しない。
+- `beta-0.1.0` tagは移動しない。
+- `--force` / `--force-with-lease` は使わない。
+
+Goal map note:
+
+| ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
+|---|---|---|---|---|---|---|
+| G003 | human-needed | manager | human-decision | dedicated repository URL | 専用GitHub Private repositoryへのpush | Request still contains `<新しいGitHubリポジトリURL>` placeholder; see [goals/G003_STOCK_TREND_REMOTE_PUSH.md](goals/G003_STOCK_TREND_REMOTE_PUSH.md) |
