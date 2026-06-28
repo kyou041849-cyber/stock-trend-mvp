@@ -325,7 +325,7 @@ Goal map note:
 
 ## G005 E2E Argument Fix Update
 
-Status: completed, GitHub Actions recheck pending
+Status: completed
 
 Latest run inspected:
 
@@ -357,3 +357,11 @@ Goal map note:
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
 | G005-e2e-args | accepted | manager | codex-verifiable | GitHub Actions re-run | E2Eの引数転送不具合を修正 | failing step and log inspected; local pnpm validation succeeded; push will trigger CI re-run |
+
+GitHub Actions success:
+
+- fix commit: `20978e8 ci: fix E2E argument forwarding`
+- run: `28325237178`
+- status: `completed`
+- conclusion: `success`
+- URL: `https://github.com/kyou041849-cyber/stock-trend-mvp/actions/runs/28325237178`

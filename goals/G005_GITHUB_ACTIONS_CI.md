@@ -119,7 +119,7 @@ https://github.com/kyou041849-cyber/stock-trend-mvp.git
 
 ## CI Install Failure Fix
 
-Status: completed, GitHub Actions recheck pending
+Status: completed
 
 ### Failure
 
@@ -300,4 +300,10 @@ node scripts/run-e2e.js -- --reporter=line
 
 ### GitHub Actions
 
-Pushing the fix to `origin/main` should trigger a new CI run for the corrected argument handling.
+GitHub Actions succeeded after pushing the fix:
+
+- fix commit: `20978e8 ci: fix E2E argument forwarding`
+- run: `28325237178`
+- status: `completed`
+- conclusion: `success`
+- URL: `https://github.com/kyou041849-cyber/stock-trend-mvp/actions/runs/28325237178`
