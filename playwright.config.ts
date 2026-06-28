@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const port = process.env.E2E_PORT ?? "3010";
 const baseURL = `http://127.0.0.1:${port}`;
 const devCommand = `node node_modules/next/dist/bin/next dev -p ${port}`;
+const isCi = Boolean(process.env.CI);
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -20,13 +21,22 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
-  projects: [
-    {
-      name: "edge",
-      use: {
-        ...devices["Desktop Edge"],
-        channel: "msedge",
-      },
-    },
-  ],
+  projects: isCi
+    ? [
+        {
+          name: "chromium",
+          use: {
+            ...devices["Desktop Chrome"],
+          },
+        },
+      ]
+    : [
+        {
+          name: "edge",
+          use: {
+            ...devices["Desktop Edge"],
+            channel: "msedge",
+          },
+        },
+      ],
 });

@@ -35,6 +35,8 @@ Job:
 - timeout: 25 minutes
 - Node.js: 22
 - package manager: pnpm
+- CI E2E browser: Chromium
+- local E2E browser: Edge
 
 Steps:
 
@@ -42,7 +44,7 @@ Steps:
 2. setup Node.js
 3. enable pnpm with corepack
 4. `pnpm install --frozen-lockfile`
-5. `pnpm exec playwright install --with-deps msedge`
+5. `node node_modules/@playwright/test/cli.js install --with-deps chromium`
 6. `pnpm run typecheck`
 7. `pnpm run test`
 8. `pnpm run build`
@@ -161,3 +163,52 @@ allowBuilds:
 ### GitHub Actions
 
 Pushing the fix to `origin/main` should trigger a new CI run. Confirm the latest `CI` run in GitHub Actions after push.
+
+## CI Browser Stabilization Fix
+
+Status: completed, GitHub Actions recheck pending
+
+### Latest Run Context
+
+User reported the latest CI run failed after the pnpm workspace fix:
+
+- workflow: `CI`
+- commit: `ebbcbce`
+- branch: `main`
+- status: Failure
+- job: `Typecheck, test, build, and E2E`
+- duration: about 1m31s
+
+Detailed run logs could not be fetched from this environment:
+
+- `gh` is not installed locally
+- GitHub connector returned no push-triggered workflow runs for the commit
+- browser-based GitHub Actions inspection was unavailable
+
+### Likely Failing Area
+
+The previous `Install dependencies` failure was fixed. The next CI-only risk was Playwright browser setup or launch, because the workflow installed `msedge` on `ubuntu-latest` while local runs use Edge on Windows.
+
+### Fix
+
+- CI now installs Chromium:
+
+```yaml
+node node_modules/@playwright/test/cli.js install --with-deps chromium
+```
+
+- `playwright.config.ts` now uses:
+  - `chromium` when `process.env.CI` is set
+  - existing local Edge configuration otherwise
+
+### Validation
+
+- `npm.cmd run typecheck`: success
+- `npm.cmd run test`: success
+- `npm.cmd run build`: success
+- `npm.cmd run test:e2e -- --reporter=line`: success, 3 passed
+- `CI=true node node_modules/@playwright/test/cli.js test --list`: success, 3 tests listed under `[chromium]`
+
+### GitHub Actions
+
+Pushing this stabilization fix to `origin/main` should trigger a new CI run. Confirm the latest `CI` run in GitHub Actions after push.

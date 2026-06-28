@@ -185,7 +185,7 @@ Workflow:
 - runner: `ubuntu-latest`
 - package manager: `pnpm`, because the repository has `pnpm-lock.yaml` and no `package-lock.json`
 - validation: `pnpm run typecheck`, `pnpm run test`, `pnpm run build`, `pnpm run test:e2e -- --reporter=line`
-- E2E browser: Playwright `msedge`, installed in CI
+- E2E browser: Playwright `chromium` in CI, local Edge preserved
 - failure artifacts: `test-results`, `playwright-report`
 
 Safety:
@@ -253,3 +253,45 @@ Goal map note:
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
 | G005-fix | accepted | manager | codex-verifiable | GitHub Actions re-run | pnpm workspace設定を修正し、CI install失敗を解消 | local frozen install and validation succeeded; push will trigger CI re-run |
+
+## G005 CI Stabilization Update
+
+Status: completed, GitHub Actions recheck pending
+
+Latest run:
+
+- workflow: `CI`
+- commit: `ebbcbce`
+- branch: `main`
+- status reported by user: Failure
+- job: `Typecheck, test, build, and E2E`
+- detailed GitHub logs: not available from local `gh` because `gh` is not installed; GitHub connector did not expose push-triggered workflow runs for this private repository; browser bridge was unavailable
+
+Confirmed locally:
+
+- `CI=true` makes Playwright list the `chromium` project after the config change.
+- local non-CI E2E still uses the existing Edge project.
+
+Likely failing area:
+
+- The prior `Install dependencies` issue was fixed.
+- The next likely CI-only failure area is Playwright browser installation or E2E browser launch using `msedge` on `ubuntu-latest`.
+
+Fix:
+
+- `.github/workflows/ci.yml`: install Playwright `chromium` with `node node_modules/@playwright/test/cli.js install --with-deps chromium`.
+- `playwright.config.ts`: use `chromium` only when `process.env.CI` is set; keep local Edge behavior unchanged.
+
+Validation:
+
+- `npm.cmd run typecheck`: success
+- `npm.cmd run test`: success
+- `npm.cmd run build`: success
+- `npm.cmd run test:e2e -- --reporter=line`: success, 3 passed
+- `CI=true node node_modules/@playwright/test/cli.js test --list`: success, 3 tests listed under `[chromium]`
+
+Goal map note:
+
+| ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
+|---|---|---|---|---|---|---|
+| G005-stabilize | accepted | manager | codex-verifiable | GitHub Actions re-run | CIのPlaywrightブラウザ処理をChromiumへ安定化 | workflow and Playwright config updated; local validation succeeded; push will trigger CI re-run |
