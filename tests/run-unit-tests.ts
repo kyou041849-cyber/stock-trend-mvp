@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { ApiFundamentalAdapter } from "../src/adapters/apiFundamentalAdapter";
+import { ApiStockPriceAdapter } from "../src/adapters/apiStockPriceAdapter";
 import { FORBIDDEN_MOCK_LLM_PHRASES } from "../src/adapters/mockLlmAdapter";
 import { OpenAiLlmAdapter, getOpenAiLlmConfig } from "../src/adapters/openAiLlmAdapter";
 import {
@@ -54,6 +56,14 @@ import {
   parseLocalStorageBackupJson,
   restoreLocalStorageBackup,
 } from "../src/lib/localStorageBackup";
+import {
+  extractFundamentalApiRows,
+  extractStockPriceApiRows,
+} from "../src/lib/marketApiParsing";
+import {
+  buildServerMarketApiUrl,
+  getServerMarketApiConfig,
+} from "../src/lib/serverMarketApi";
 import {
   deleteLlmOutputFromList,
   isLlmOutputCurrent,
@@ -536,6 +546,89 @@ async function run(): Promise<void> {
   assert.equal(apiSaveResult.ok, true);
   assert.equal(JSON.stringify(loadStockPriceApiSettings()).includes("SECRET_API_KEY"), false);
   assert.equal([...historyStorage.values()].join("\n").includes("SECRET_API_KEY"), false);
+
+  const missingStockApiConfig = getServerMarketApiConfig("stock-price", {});
+  assert.equal(missingStockApiConfig.ok, false);
+  if (!missingStockApiConfig.ok) {
+    assert.deepEqual(missingStockApiConfig.missing, ["STOCK_PRICE_API_KEY", "STOCK_PRICE_API_BASE_URL"]);
+  }
+  const stockApiConfig = getServerMarketApiConfig("stock-price", {
+    STOCK_PRICE_API_KEY: "SECRET_API_KEY",
+    STOCK_PRICE_API_BASE_URL: "https://example.com/prices",
+  });
+  assert.equal(stockApiConfig.ok, true);
+  const marketUrl = buildServerMarketApiUrl("https://example.com/prices?existing=1", {
+    symbol: "TEST",
+    period: "1m",
+  });
+  assert.notEqual(marketUrl, null);
+  assert.equal(marketUrl?.includes("SECRET_API_KEY"), false);
+  assert.equal(marketUrl?.includes("symbol=TEST"), true);
+  assert.equal(extractStockPriceApiRows({
+    "Time Series (Daily)": {
+      "2026-01-01": {
+        "1. open": "100",
+        "2. high": "105",
+        "3. low": "98",
+        "4. close": "102",
+        "5. volume": "1000000",
+      },
+    },
+  })?.length, 1);
+  assert.equal(extractFundamentalApiRows({ fundamentals: [{ fiscalYear: 2026, revenue: "1000" }] })?.length, 1);
+
+  const originalFetchForMarketAdapters = globalThis.fetch;
+  let stockAdapterRequestBody = "";
+  globalThis.fetch = async (input, init) => {
+    assert.equal(input, "/api/stock-prices");
+    stockAdapterRequestBody = String(init?.body ?? "");
+    assert.equal(stockAdapterRequestBody.includes("SECRET_API_KEY"), false);
+    assert.equal(stockAdapterRequestBody.includes("https://secret.example"), false);
+    return new Response(JSON.stringify({
+      ok: true,
+      status: "success",
+      rawRows: [{ date: "2026-01-01", open: 100, high: 105, low: 98, close: 102, volume: 1000000 }],
+      dataSource: manualDataSource("2026-02-01T00:00:00.000Z"),
+      message: "ok",
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  const stockRouteResult = await ApiStockPriceAdapter.fetchPrices("TEST", "1m", {
+    providerName: "Alpha Vantage",
+    apiKey: "SECRET_API_KEY",
+    baseUrl: "https://secret.example/prices",
+    enabled: true,
+    mockMode: false,
+    lastConnectionCheckedAt: "",
+  });
+  assert.equal(stockRouteResult.ok, true);
+  assert.deepEqual(Object.keys(JSON.parse(stockAdapterRequestBody)).sort(), ["period", "providerName", "ticker"]);
+
+  let fundamentalAdapterRequestBody = "";
+  globalThis.fetch = async (input, init) => {
+    assert.equal(input, "/api/fundamentals");
+    fundamentalAdapterRequestBody = String(init?.body ?? "");
+    assert.equal(fundamentalAdapterRequestBody.includes("SECRET_API_KEY"), false);
+    assert.equal(fundamentalAdapterRequestBody.includes("https://secret.example"), false);
+    return new Response(JSON.stringify({
+      ok: true,
+      status: "success",
+      rawRows: [{ fiscalYear: 2026, revenue: 1000, operatingIncome: 100, netIncome: 70 }],
+      dataSource: manualDataSource("2026-02-01T00:00:00.000Z"),
+      message: "ok",
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  const fundamentalRouteResult = await ApiFundamentalAdapter.fetchFundamentals("TEST", "annual", {
+    providerName: "Finnhub",
+    apiKey: "SECRET_API_KEY",
+    baseUrl: "https://secret.example/fundamentals",
+    enabled: true,
+    mockMode: false,
+    lastConnectionCheckedAt: "",
+  });
+  assert.equal(fundamentalRouteResult.ok, true);
+  assert.deepEqual(Object.keys(JSON.parse(fundamentalAdapterRequestBody)).sort(), ["period", "providerName", "ticker"]);
+  globalThis.fetch = originalFetchForMarketAdapters;
+
   if (originalWindow === undefined) {
     Reflect.deleteProperty(globalThis, "window");
   } else {

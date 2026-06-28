@@ -51,7 +51,7 @@ screenshots/
 *.log
 ```
 
-`.env.local` には実LLM APIキーを置く可能性があるため、絶対にバックアップZIPへ含めないでください。共有するのは `.env.local.example` だけです。
+`.env.local` には実LLM APIキー、株価APIキー、業績APIキーを置く可能性があるため、絶対にバックアップZIPへ含めないでください。共有するのは `.env.local.example` だけです。
 
 ## localStorageバックアップ
 
@@ -89,6 +89,7 @@ screenshots/
 - APIキーらしい値を検出した場合、バックアップまたは復元を中止します。
 - `stock-trend-mvp:` で始まらないキーは復元しません。
 - `.env.local` の内容はバックアップ対象ではありません。
+- 株価API・業績APIのキーはサーバー側環境変数で扱い、localStorageバックアップには含めません。
 - localStorageバックアップは単純な上書き復元です。マージ復元ではありません。
 
 ## バックアップ頻度の目安

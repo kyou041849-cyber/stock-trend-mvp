@@ -1,81 +1,19 @@
-import { apiDataSource } from "@/lib/dataSource";
-import { formatStockPricePeriod } from "@/lib/updateHistory";
-import type { StockPriceApiSettings, StockPriceFetchPeriod } from "@/lib/types";
-import type { StockPriceApiFetchResult, StockPriceApiRawRow } from "@/types/api";
+import { apiDataSource } from "../lib/dataSource";
+import type { StockPriceApiSettings, StockPriceFetchPeriod } from "../lib/types";
+import { formatStockPricePeriod } from "../lib/updateHistory";
+import type { StockPriceApiFetchResult } from "../types/api";
 
-function appendQueryParams(baseUrl: string, params: Record<string, string>): string | null {
-  try {
-    const url = new URL(baseUrl);
-    Object.entries(params).forEach(([key, value]) => {
-      if (value) {
-        url.searchParams.set(key, value);
-      }
-    });
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
-
-function extractAlphaVantageRows(payload: Record<string, unknown>): StockPriceApiRawRow[] | null {
-  const timeSeriesKey = Object.keys(payload).find((key) => key.toLowerCase().includes("time series"));
-
-  if (!timeSeriesKey) {
-    return null;
+function isStockPriceApiFetchResult(value: unknown): value is StockPriceApiFetchResult {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
   }
 
-  const timeSeries = payload[timeSeriesKey];
-  if (!timeSeries || typeof timeSeries !== "object" || Array.isArray(timeSeries)) {
-    return null;
-  }
-
-  return Object.entries(timeSeries as Record<string, unknown>).map(([date, value]) => {
-    const row = value && typeof value === "object" ? value as Record<string, unknown> : {};
-    return {
-      date,
-      open: row["1. open"] ?? row.open,
-      high: row["2. high"] ?? row.high,
-      low: row["3. low"] ?? row.low,
-      close: row["4. close"] ?? row.close ?? row["5. adjusted close"],
-      volume: row["5. volume"] ?? row.volume ?? row["6. volume"],
-    };
-  });
-}
-
-function extractRows(payload: unknown): StockPriceApiRawRow[] | null {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is StockPriceApiRawRow => item !== null && typeof item === "object" && !Array.isArray(item));
-  }
-
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-
-  const row = payload as Record<string, unknown>;
-  const alphaRows = extractAlphaVantageRows(row);
-  if (alphaRows) {
-    return alphaRows;
-  }
-
-  const candidates = [row.data, row.prices, row.historical, row.results, row.values];
-  const arrayCandidate = candidates.find(Array.isArray);
-
-  if (!arrayCandidate || !Array.isArray(arrayCandidate)) {
-    return null;
-  }
-
-  return arrayCandidate.filter((item): item is StockPriceApiRawRow => item !== null && typeof item === "object" && !Array.isArray(item));
-}
-
-function extractApiMessage(payload: unknown): string {
-  if (!payload || typeof payload !== "object") {
-    return "";
-  }
-
-  const row = payload as Record<string, unknown>;
-  const values = [row.message, row.error, row["Error Message"], row.Note, row.Information];
-  const message = values.find((value): value is string => typeof value === "string");
-  return message ?? "";
+  const row = value as Partial<StockPriceApiFetchResult>;
+  return typeof row.ok === "boolean"
+    && typeof row.status === "string"
+    && Array.isArray(row.rawRows)
+    && row.dataSource !== undefined
+    && typeof row.message === "string";
 }
 
 export const ApiStockPriceAdapter = {
@@ -90,92 +28,32 @@ export const ApiStockPriceAdapter = {
       now,
       `取得期間：${formatStockPricePeriod(period)}`,
     );
-    const url = appendQueryParams(settings.baseUrl, {
-      symbol: ticker,
-      ticker,
-      period,
-      apikey: settings.apiKey,
-      apiKey: settings.apiKey,
-    });
-
-    if (!url) {
-      return {
-        ok: false,
-        status: "api-not-configured",
-        rawRows: [],
-        dataSource,
-        message: "APIベースURLの形式が不正です。",
-      };
-    }
 
     try {
-      const response = await fetch(url);
+      const response = await fetch("/api/stock-prices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticker,
+          period,
+          providerName: settings.providerName,
+        }),
+      });
+      const payload = await response.json().catch(() => null) as unknown;
 
-      if (response.status === 429) {
-        return {
-          ok: false,
-          status: "rate-limited",
-          rawRows: [],
-          dataSource,
-          message: "APIのレート制限に達しました。時間を置いて再確認してください。",
-        };
-      }
-
-      if (!response.ok) {
-        return {
-          ok: false,
-          status: "failed",
-          rawRows: [],
-          dataSource,
-          message: `API取得に失敗しました（HTTP ${response.status}）。`,
-        };
-      }
-
-      const payload = await response.json() as unknown;
-      const apiMessage = extractApiMessage(payload);
-
-      if (apiMessage.toLowerCase().includes("rate limit") || apiMessage.includes("レート")) {
-        return {
-          ok: false,
-          status: "rate-limited",
-          rawRows: [],
-          dataSource,
-          message: "APIのレート制限に達しました。時間を置いて再確認してください。",
-        };
-      }
-
-      const rawRows = extractRows(payload);
-
-      if (!rawRows) {
+      if (!isStockPriceApiFetchResult(payload)) {
         return {
           ok: false,
           status: "invalid-format",
           rawRows: [],
           dataSource,
-          message: apiMessage || "APIレスポンス形式が不正です。アダプタ設定を確認してください。",
+          message: response.ok
+            ? "サーバー側APIルートのレスポンス形式が不正です。"
+            : `サーバー側APIルートで取得に失敗しました（HTTP ${response.status}）。`,
         };
       }
 
-      if (rawRows.length === 0) {
-        return {
-          ok: false,
-          status: "empty",
-          rawRows: [],
-          dataSource,
-          message: "対象ティッカーの株価データが見つかりませんでした。",
-        };
-      }
-
-      return {
-        ok: true,
-        status: "success",
-        rawRows,
-        dataSource: {
-          ...dataSource,
-          message: `取得期間：${formatStockPricePeriod(period)} / 取得件数：${rawRows.length}件`,
-        },
-        message: `APIから株価データを取得しました（${rawRows.length}件）。`,
-      };
+      return payload;
     } catch {
       return {
         ok: false,

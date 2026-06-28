@@ -5,7 +5,7 @@ import type React from "react";
 import type { LucideIcon } from "lucide-react";
 import { Download, List, RefreshCw, Save, Upload } from "lucide-react";
 import { ActionButton as DsActionButton, FormField, InfoAlert, PageHeader, SectionCard, inputClassName as dsInputClassName } from "@/components/ui/design-system";
-import { loadFundamentalApiSettings, loadStockPriceApiSettings, maskApiKey, saveFundamentalApiSettings, saveStockPriceApiSettings } from "@/lib/apiSettings";
+import { loadFundamentalApiSettings, loadStockPriceApiSettings, saveFundamentalApiSettings, saveStockPriceApiSettings } from "@/lib/apiSettings";
 import { createLocalStorageBackup, listStockTrendLocalStorageKeys, parseLocalStorageBackupJson, restoreLocalStorageBackup, type ParsedBackupResult } from "@/lib/localStorageBackup";
 import { checkFundamentalApiConnection } from "@/services/fundamentalUpdateService";
 import { checkStockPriceApiConnection } from "@/services/stockPriceUpdateService";
@@ -43,7 +43,7 @@ function ViewHeader({ title, actions }: { title: string; actions?: React.ReactNo
 function Disclaimer() {
   return (
     <InfoAlert tone="warning">
-      <p>APIキーはlocalStorageに保存しません。実LLMはサーバー側の `.env.local` を使い、ブラウザ側にキーを置かない前提です。</p>
+      <p>APIキーはブラウザ・localStorage・送信本文には保存しません。実LLM、株価API、業績APIはいずれもサーバー側の `.env.local` から読みます。</p>
     </InfoAlert>
   );
 }
@@ -165,7 +165,7 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
       <SectionCard title="安全に関する注意" description="設定を変更する前に確認してください。">
         <ul className="grid gap-2 text-sm font-semibold text-slate-700">
           <li className="rounded-md border border-line px-3 py-2">APIキーはlocalStorageに保存しません。</li>
-          <li className="rounded-md border border-line px-3 py-2">実LLMのキーは `.env.local` に置き、サーバー側API Routeから使います。</li>
+          <li className="rounded-md border border-line px-3 py-2">実LLM、株価API、業績APIのキーは `.env.local` に置き、サーバー側API Routeから使います。</li>
           <li className="rounded-md border border-line px-3 py-2">E2E確認では実APIを呼ばず、Mock APIを使います。</li>
         </ul>
       </SectionCard>
@@ -219,18 +219,19 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
       <div className="rounded-lg border border-line bg-white p-5 shadow-panel">
         <h2 className="text-lg font-bold text-ink">株価API設定</h2>
         <p data-testid="api-key-safety-note" className="mt-2 text-sm font-semibold text-slate-600">
-          APIキーはlocalStorageに保存しません。保存時に破棄されるため、Mock APIでの確認を優先してください。実運用ではサーバー側APIルートと環境変数で扱う構成が安全です。
+          APIキーは画面入力・localStorage保存を行いません。実運用では `STOCK_PRICE_API_KEY` と `STOCK_PRICE_API_BASE_URL` をサーバー側環境変数に設定してください。
         </p>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <Field label="APIプロバイダ名">
             <input data-testid="stock-api-provider" className={inputClassName()} value={settings.providerName} onChange={(event) => updateSettings("providerName", event.target.value)} placeholder="例: Alpha Vantage" />
           </Field>
           <Field label="APIキー">
-            <input data-testid="stock-api-key" type="password" className={inputClassName()} value={settings.apiKey} onChange={(event) => updateSettings("apiKey", event.target.value)} placeholder="未設定" />
-            <p className="mt-1 text-xs font-semibold text-slate-500">表示：{maskApiKey(settings.apiKey)}</p>
+            <input data-testid="stock-api-key" className={inputClassName("bg-slate-100 text-slate-500")} value="サーバー側環境変数で設定" readOnly disabled />
+            <p className="mt-1 text-xs font-semibold text-slate-500">クライアントへ送信せず、保存時も空のまま保持します。</p>
           </Field>
-          <Field label="APIベースURL">
+          <Field label="APIベースURLメモ">
             <input data-testid="stock-api-base-url" className={inputClassName()} value={settings.baseUrl} onChange={(event) => updateSettings("baseUrl", event.target.value)} placeholder="https://example.com/prices" />
+            <p className="mt-1 text-xs font-semibold text-slate-500">実API取得ではサーバー側の `STOCK_PRICE_API_BASE_URL` を使います。</p>
           </Field>
           <div className="grid gap-3 rounded-lg border border-line p-4">
             <label className="flex items-center gap-2 text-sm font-bold text-ink">
@@ -254,18 +255,19 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
       <div className="rounded-lg border border-line bg-white p-5 shadow-panel">
         <h2 className="text-lg font-bold text-ink">業績API設定</h2>
         <p className="mt-2 text-sm font-semibold text-slate-600">
-          業績・財務データ取得用の設定です。Mock APIモードではAPIキーなしで年次業績データの動作確認ができます。
+          業績・財務データ取得用の設定です。APIキーは画面入力せず、実運用では `FUNDAMENTAL_API_KEY` と `FUNDAMENTAL_API_BASE_URL` をサーバー側環境変数に設定します。
         </p>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <Field label="APIプロバイダ名">
             <input data-testid="fundamental-api-provider" className={inputClassName()} value={fundamentalSettings.providerName} onChange={(event) => updateFundamentalSettings("providerName", event.target.value)} placeholder="例: Finnhub" />
           </Field>
           <Field label="APIキー">
-            <input data-testid="fundamental-api-key" type="password" className={inputClassName()} value={fundamentalSettings.apiKey} onChange={(event) => updateFundamentalSettings("apiKey", event.target.value)} placeholder="未設定" />
-            <p className="mt-1 text-xs font-semibold text-slate-500">表示：{maskApiKey(fundamentalSettings.apiKey)}</p>
+            <input data-testid="fundamental-api-key" className={inputClassName("bg-slate-100 text-slate-500")} value="サーバー側環境変数で設定" readOnly disabled />
+            <p className="mt-1 text-xs font-semibold text-slate-500">クライアントへ送信せず、保存時も空のまま保持します。</p>
           </Field>
-          <Field label="APIベースURL">
+          <Field label="APIベースURLメモ">
             <input data-testid="fundamental-api-base-url" className={inputClassName()} value={fundamentalSettings.baseUrl} onChange={(event) => updateFundamentalSettings("baseUrl", event.target.value)} placeholder="https://example.com/fundamentals" />
+            <p className="mt-1 text-xs font-semibold text-slate-500">実API取得ではサーバー側の `FUNDAMENTAL_API_BASE_URL` を使います。</p>
           </Field>
           <div className="grid gap-3 rounded-lg border border-line p-4">
             <label className="flex items-center gap-2 text-sm font-bold text-ink">
