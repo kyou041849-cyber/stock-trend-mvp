@@ -212,3 +212,35 @@ node node_modules/@playwright/test/cli.js install --with-deps chromium
 ### GitHub Actions
 
 Pushing this stabilization fix to `origin/main` should trigger a new CI run. Confirm the latest `CI` run in GitHub Actions after push.
+
+## Post-Stabilization Recheck Attempt
+
+Status: human-needed
+
+### Remote State
+
+- `origin/main`: `3d4c3c3cfbee6fa3cb059987a02a7d18c46a47b8`
+- `beta-0.1.0`: `7fb1e793f2dd0b5d9ba9996054a021997471dbfe`
+
+### What Was Confirmed
+
+- `gh --version`: unavailable; GitHub CLI is not installed.
+- GitHub connector:
+  - combined commit status for `3d4c3c3`: empty
+  - push-triggered workflow runs for `3d4c3c3`: empty
+  - direct Actions API fetch is unsupported by the connector's file-fetch endpoint
+- Browser inspection:
+  - in-app browser connection timed out while opening GitHub Actions
+  - fallback Playwright browser could not start because local Chrome is missing
+
+### Local CI-Equivalent Checks
+
+- `pnpm install --frozen-lockfile`: success
+- `pnpm run typecheck`: success
+- `pnpm run test`: success
+- `pnpm run build`: success
+- `pnpm run test:e2e -- --reporter=line`: success, 3 passed
+
+### Remaining Evidence Needed
+
+Codex still needs the latest GitHub Actions `CI` run status from GitHub UI. If it failed, share the failing step name and the relevant error log. This is tracked as `H003` in `goals/HUMAN_NEEDED.md`.

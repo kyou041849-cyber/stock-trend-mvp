@@ -71,7 +71,7 @@ Checklist: [goals/HUMAN_NEEDED.md](goals/HUMAN_NEEDED.md)
 
 | Item | Blocks | Summary | Status |
 |---|---|---|---|
-| H001 | G001/G002 completion | GitHub remote main is an unrelated Codex hub; user must choose a new empty repo, subdirectory integration, or explicit remote replacement policy | open |
+| H003 | G005 CI成功判定 | GitHub Actions最新CI runの成功/失敗と、失敗時の赤いstepログ確認が必要 | open |
 
 ## Review / Integration / Push Policy
 
@@ -295,3 +295,30 @@ Goal map note:
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
 | G005-stabilize | accepted | manager | codex-verifiable | GitHub Actions re-run | CIのPlaywrightブラウザ処理をChromiumへ安定化 | workflow and Playwright config updated; local validation succeeded; push will trigger CI re-run |
+
+## G005 Post-Stabilization Recheck Update
+
+Status: human-needed
+
+Outcome: `origin/main` が `3d4c3c3 ci: stabilize GitHub Actions validation` を指していること、pnpm経由のローカル検証が成功することは確認済み。ただし、この環境からGitHub Actions最新runの赤いstepを取得できなかったため、GitHub UIでの確認が必要。
+
+External-state checks attempted:
+
+- `git ls-remote origin refs/heads/main refs/tags/beta-0.1.0`: success
+- `gh --version`: unavailable
+- GitHub connector combined status / commit workflow runs: no push-triggered run data returned
+- Browser inspection: unavailable due in-app browser timeout and local Chrome missing
+
+Validation:
+
+- `pnpm install --frozen-lockfile`: success
+- `pnpm run typecheck`: success
+- `pnpm run test`: success
+- `pnpm run build`: success
+- `pnpm run test:e2e -- --reporter=line`: success, 3 passed
+
+Goal map note:
+
+| ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
+|---|---|---|---|---|---|---|
+| G005-recheck | human-needed | manager | human-decision | GitHub UI latest CI status | CI最新runの結果確認 | local validation succeeded; GitHub Actions run result not retrievable from current tools; see H003 |
