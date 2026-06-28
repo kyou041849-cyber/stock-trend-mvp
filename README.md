@@ -77,7 +77,7 @@ CIで実行する内容:
 - `pnpm run build`
 - `pnpm run test:e2e -- --reporter=line`
 
-CIは `pnpm-lock.yaml` を基準に依存関係を入れ、Playwrightの `msedge` をインストールしてE2E smoke testを実行します。実LLM APIは呼びません。APIキーやGitHub Secretsも不要です。
+CIは `pnpm-lock.yaml` を基準に依存関係を入れ、Playwrightの `chromium` をインストールしてE2E smoke testを実行します。実LLM API、実株価API、実業績APIは呼びません。APIキーやGitHub Secretsも不要です。
 
 CIが失敗した場合は、まずローカルで次を実行して再現してください。
 
@@ -127,20 +127,26 @@ fiscalYear,revenue,operatingIncome,netIncome,eps,operatingCashFlow,freeCashFlow,
 
 CSVインポート履歴には件数、ファイル名、成否を保存します。CSV本文全文は保存しません。
 
-## 実LLM APIと環境変数
+## 実APIと環境変数
 
-実LLMはサーバー側Route Handler経由で呼び出します。APIキーはブラウザ側コード、localStorage、利用ログには保存しません。
+実LLM、株価API、業績APIはサーバー側Route Handler経由で呼び出します。APIキーはブラウザ側コード、localStorage、利用ログには保存しません。
 
-実LLMを使う場合は、`.env.local.example` を参考に `.env.local` を作成してください。
+実APIを使う場合は、`.env.local.example` を参考に `.env.local` を作成してください。
 
 ```text
 OPENAI_API_KEY=your-openai-api-key
 OPENAI_MODEL=gpt-5-mini
+
+STOCK_PRICE_API_KEY=
+STOCK_PRICE_API_BASE_URL=
+
+FUNDAMENTAL_API_KEY=
+FUNDAMENTAL_API_BASE_URL=
 ```
 
 `.env.local` は `.gitignore` 対象です。GitHubへpushしないでください。共有するのは `.env.local.example` だけです。
 
-株価API・業績APIの設定画面にもAPI関連の表示がありますが、β版ではMock APIでの動作確認を優先してください。
+設定画面ではAPIプロバイダ名やMockモードを管理できますが、APIキーは入力・保存しません。株価API・業績APIの実接続は、ブラウザから直接外部APIへfetchせず、`/api/stock-prices` と `/api/fundamentals` のサーバー側Route Handlerを通します。β版ではMock APIでの動作確認を優先してください。
 
 ## β版タグ
 
@@ -166,7 +172,7 @@ localStorageに保存された銘柄データ、CSV履歴、AI分析履歴はGit
 
 ## 未実装・制限
 
-- 実株価API・実業績APIの本格接続
+- プロバイダ別の実株価API・実業績APIレスポンス変換の拡充
 - ユーザー認証
 - サーバーDB保存
 - 複数端末同期
@@ -174,7 +180,6 @@ localStorageに保存された銘柄データ、CSV履歴、AI分析履歴はGit
 
 ## 次に追加するとよい機能
 
-- GitHub Actionsによる検証自動化
 - localStorageバックアップの世代管理
 - APIプロバイダ別の安全なサーバー側接続
 - AI分析履歴のタグ付けと横断検索強化

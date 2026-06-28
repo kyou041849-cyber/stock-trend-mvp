@@ -7,9 +7,9 @@
     "category":  "daily_issues",
     "mode":  "local_app",
     "created_at":  "2026-06-14T23:09:46+09:00",
-    "updated_at":  "2026-06-16T00:28:48+09:00",
-    "revision":  1,
-    "summary":  "株価CSV、年度別業績、ウォッチリスト、決算メモ、リスクメモを localStorage で扱う銘柄調査補助ローカルWebアプリ。",
+    "updated_at":  "2026-06-29T07:16:32+09:00",
+    "revision":  2,
+    "summary":  "株価CSV、年度別業績、ウォッチリスト、決算メモ、リスクメモ、AI分析履歴、サーバー側API Routeを localStorage 中心で扱う銘柄調査補助ローカルWebアプリ。",
     "primary_output":  "README.md",
     "html_output":  "",
     "output_files":  [
@@ -21,6 +21,6 @@
     "folder":  "C:\\Users\\kyou0\\Documents\\日常の困りごと\\stock-trend-mvp",
     "parent_request_id":  "",
     "continuation_policy":  "external_daily_issue_project",
-    "verification":  "README.md, package.json, src, scripts の存在を確認",
-    "risks":  "表示スコアは機械的集計であり投資判断ではない。node_modules や .next は index 対象外。"
+    "verification":  "README.md, package.json, src, scripts の存在を確認。G006で株価/業績APIの実取得をサーバー側Route Handler経由へ統一し、typecheck/test/build/E2Eで確認する。",
+    "risks":  "表示スコアは機械的集計であり投資判断ではない。node_modules や .next は index 対象外。実APIキーは .env.local のみで扱い、ブラウザ/localStorageには保存しない。"
 }

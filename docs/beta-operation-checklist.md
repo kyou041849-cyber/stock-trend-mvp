@@ -59,6 +59,16 @@
 - 自動テストでは実LLM APIを呼ばない
 - エラー時は再試行前に入力サイズ、回数制限、環境変数を確認する
 
+## 株価API・業績API利用時チェック
+
+- `.env.local` に `STOCK_PRICE_API_KEY` と `STOCK_PRICE_API_BASE_URL` を設定した
+- `.env.local` に `FUNDAMENTAL_API_KEY` と `FUNDAMENTAL_API_BASE_URL` を設定した
+- APIキーを設定画面、localStorage、CSV、メモ、スクリーンショットに含めていない
+- 設定画面のAPIキー欄が「サーバー側環境変数で設定」になっている
+- 実取得は `/api/stock-prices` または `/api/fundamentals` のサーバー側Route Handler経由で行われる
+- 自動テストとE2Eでは実株価API・実業績APIを呼ばない
+- 環境変数未設定時は、画面が落ちずに未設定メッセージを表示する
+
 ## localStorageバックアップタイミング
 
 - 実データ投入前
@@ -117,7 +127,7 @@
 - CIは `main` へのpushとpull requestで実行される
 - CIは `pnpm-lock.yaml` を使って依存関係を入れる
 - CIは `typecheck`、単体テスト、build、E2E smoke testを実行する
-- CIでは実LLM APIを呼ばない
+- CIでは実LLM API、実株価API、実業績APIを呼ばない
 - CIではAPIキーやGitHub Secretsを要求しない
 - CIが失敗したら、まずローカルで次を実行する
 

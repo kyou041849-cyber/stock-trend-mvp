@@ -1,71 +1,19 @@
-import { apiDataSource } from "@/lib/dataSource";
-import { formatFundamentalPeriod } from "@/lib/updateHistory";
-import type { FundamentalApiSettings, FundamentalFetchPeriod } from "@/lib/types";
-import type { FundamentalApiFetchResult, FundamentalApiRawRow } from "@/types/fundamentalApi";
+import { apiDataSource } from "../lib/dataSource";
+import type { FundamentalApiSettings, FundamentalFetchPeriod } from "../lib/types";
+import { formatFundamentalPeriod } from "../lib/updateHistory";
+import type { FundamentalApiFetchResult } from "../types/fundamentalApi";
 
-function appendQueryParams(baseUrl: string, params: Record<string, string>): string | null {
-  try {
-    const url = new URL(baseUrl);
-    Object.entries(params).forEach(([key, value]) => {
-      if (value) {
-        url.searchParams.set(key, value);
-      }
-    });
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
-
-function asRows(value: unknown): FundamentalApiRawRow[] | null {
-  if (!Array.isArray(value)) {
-    return null;
+function isFundamentalApiFetchResult(value: unknown): value is FundamentalApiFetchResult {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
   }
 
-  return value.filter((item): item is FundamentalApiRawRow => item !== null && typeof item === "object" && !Array.isArray(item));
-}
-
-function extractRows(payload: unknown): FundamentalApiRawRow[] | null {
-  if (Array.isArray(payload)) {
-    return asRows(payload);
-  }
-
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-
-  const row = payload as Record<string, unknown>;
-  const candidates = [
-    row.data,
-    row.fundamentals,
-    row.financials,
-    row.annualReports,
-    row.incomeStatement,
-    row.incomeStatements,
-    row.results,
-  ];
-  const direct = candidates.map(asRows).find((rows) => rows !== null);
-  if (direct) {
-    return direct;
-  }
-
-  if (row.financials && typeof row.financials === "object" && !Array.isArray(row.financials)) {
-    const financials = row.financials as Record<string, unknown>;
-    return asRows(financials.annual) ?? asRows(financials.incomeStatement) ?? asRows(financials.results);
-  }
-
-  return null;
-}
-
-function extractApiMessage(payload: unknown): string {
-  if (!payload || typeof payload !== "object") {
-    return "";
-  }
-
-  const row = payload as Record<string, unknown>;
-  const values = [row.message, row.error, row["Error Message"], row.Note, row.Information];
-  const message = values.find((value): value is string => typeof value === "string");
-  return message ?? "";
+  const row = value as Partial<FundamentalApiFetchResult>;
+  return typeof row.ok === "boolean"
+    && typeof row.status === "string"
+    && Array.isArray(row.rawRows)
+    && row.dataSource !== undefined
+    && typeof row.message === "string";
 }
 
 export const ApiFundamentalAdapter = {
@@ -80,93 +28,32 @@ export const ApiFundamentalAdapter = {
       now,
       `対象期間：${formatFundamentalPeriod(period)}`,
     );
-    const url = appendQueryParams(settings.baseUrl, {
-      symbol: ticker,
-      ticker,
-      period,
-      statement: "fundamentals",
-      apikey: settings.apiKey,
-      apiKey: settings.apiKey,
-    });
-
-    if (!url) {
-      return {
-        ok: false,
-        status: "api-not-configured",
-        rawRows: [],
-        dataSource,
-        message: "APIベースURLの形式が不正です。",
-      };
-    }
 
     try {
-      const response = await fetch(url);
+      const response = await fetch("/api/fundamentals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticker,
+          period,
+          providerName: settings.providerName,
+        }),
+      });
+      const payload = await response.json().catch(() => null) as unknown;
 
-      if (response.status === 429) {
-        return {
-          ok: false,
-          status: "rate-limited",
-          rawRows: [],
-          dataSource,
-          message: "APIのレート制限に達しました。時間を置いて再確認してください。",
-        };
-      }
-
-      if (!response.ok) {
-        return {
-          ok: false,
-          status: "failed",
-          rawRows: [],
-          dataSource,
-          message: `API取得に失敗しました（HTTP ${response.status}）。`,
-        };
-      }
-
-      const payload = await response.json() as unknown;
-      const apiMessage = extractApiMessage(payload);
-
-      if (apiMessage.toLowerCase().includes("rate limit") || apiMessage.includes("レート")) {
-        return {
-          ok: false,
-          status: "rate-limited",
-          rawRows: [],
-          dataSource,
-          message: "APIのレート制限に達しました。時間を置いて再確認してください。",
-        };
-      }
-
-      const rawRows = extractRows(payload);
-
-      if (!rawRows) {
+      if (!isFundamentalApiFetchResult(payload)) {
         return {
           ok: false,
           status: "invalid-format",
           rawRows: [],
           dataSource,
-          message: apiMessage || "APIレスポンス形式が不正です。アダプタ設定を確認してください。",
+          message: response.ok
+            ? "サーバー側APIルートのレスポンス形式が不正です。"
+            : `サーバー側APIルートで取得に失敗しました（HTTP ${response.status}）。`,
         };
       }
 
-      if (rawRows.length === 0) {
-        return {
-          ok: false,
-          status: "empty",
-          rawRows: [],
-          dataSource,
-          message: "対象ティッカーの業績データが見つかりませんでした。",
-        };
-      }
-
-      return {
-        ok: true,
-        status: "success",
-        rawRows,
-        dataSource: {
-          ...dataSource,
-          message: `対象期間：${formatFundamentalPeriod(period)} / 取得件数：${rawRows.length}件`,
-        },
-        message: `APIから業績データを取得しました（${rawRows.length}件）。`,
-      };
+      return payload;
     } catch {
       return {
         ok: false,

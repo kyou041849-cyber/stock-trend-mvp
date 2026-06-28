@@ -73,14 +73,6 @@ function validateRealApiSettings(settings: FundamentalApiSettings): string | nul
     return "APIプロバイダ名が未設定です。";
   }
 
-  if (!settings.apiKey.trim()) {
-    return "APIキーが未設定です。";
-  }
-
-  if (!settings.baseUrl.trim()) {
-    return "APIベースURLが未設定です。";
-  }
-
   return null;
 }
 
@@ -226,6 +218,6 @@ export async function checkFundamentalApiConnection(settings: FundamentalApiSett
   return {
     ok: false,
     checkedAt,
-    message: "実APIの接続確認はプロバイダ仕様に合わせたアダプタ設定が必要です。現在はMock APIモードで確認できます。",
+    message: "実APIはサーバー側API Route経由で取得します。サーバー環境変数が未設定の場合は、更新時に安全な未設定エラーを表示します。",
   };
 }
