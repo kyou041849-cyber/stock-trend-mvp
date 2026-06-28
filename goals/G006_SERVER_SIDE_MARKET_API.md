@@ -2,7 +2,7 @@
 
 ## Status
 
-completed locally, ready for PR/CI confirmation
+completed
 
 ## Objective
 
@@ -89,7 +89,17 @@ Target:
 main
 ```
 
-PR and GitHub Actions CI result are to be recorded after push.
+PR:
+
+- https://github.com/kyou041849-cyber/stock-trend-mvp/pull/1
+- draft: true
+
+GitHub Actions:
+
+- run: `28337959243`
+- status: `completed`
+- conclusion: `success`
+- URL: `https://github.com/kyou041849-cyber/stock-trend-mvp/actions/runs/28337959243`
 
 ## Notes
 

@@ -65,7 +65,7 @@ G006: 株価/業績APIをサーバー側Route Handler経由に統一。
 |---|---|---|---|---|---|---|---|---|
 | G001 | blocked | manager | codex-verifiable | human decision on remote existing history | none | GitHubリモートpush | main push was attempted and rejected because remote main already contains work; no force push used | n/a |
 | G002 | human-needed | manager | human-decision | none | none | GitHubリモート既存履歴の確認と安全な統合方針決定 | remote main was inspected and judged unrelated to stock-trend-mvp; user decision required before any merge/push | [goals/G002_REMOTE_HISTORY.md](goals/G002_REMOTE_HISTORY.md) |
-| G006 | accepted locally | manager | codex-verifiable | PR/CI confirmation | none | 株価/業績APIをサーバー側Route Handler経由に統一 | server routes, client adapter proxying, settings safety copy, tests, docs, E2E, and safety scan completed locally; PR/CI pending | [goals/G006_SERVER_SIDE_MARKET_API.md](goals/G006_SERVER_SIDE_MARKET_API.md) |
+| G006 | accepted | manager | codex-verifiable | none | none | 株価/業績APIをサーバー側Route Handler経由に統一 | server routes, client adapter proxying, settings safety copy, tests, docs, E2E, safety scan, PR, and CI completed | [goals/G006_SERVER_SIDE_MARKET_API.md](goals/G006_SERVER_SIDE_MARKET_API.md) |
 
 ## Human-Needed Queue / Checkpoints
 
@@ -370,7 +370,7 @@ GitHub Actions success:
 
 ## G006 Server-Side Market API Update
 
-Status: completed locally, ready for PR/CI confirmation
+Status: completed
 
 Outcome: 株価API・業績APIの実取得を、ブラウザから外部APIへ直接fetchする構成からNext.js Route Handler経由へ統一。
 
@@ -400,10 +400,12 @@ Validation:
 - `.env.local`: not present and not tracked
 - tracked unwanted files: none
 - secret scan: no real API key found; hits are env var names, docs, test fixtures, existing server-side OpenAI adapter, and `risk-` / `task-` false positives
-- commit, push, PR, and CI result pending
+- commit: `4c539e6 feat: proxy market APIs through server routes`
+- PR: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/1`
+- CI run: `28337959243`, conclusion `success`
 
 Goal map note:
 
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
-| G006 | accepted locally | manager | codex-verifiable | PR/CI confirmation | 株価/業績APIをサーバー側Route Handler経由に統一 | local validation and safety scan completed on branch `codex/g006-server-proxy`; PR/CI pending |
+| G006 | accepted | manager | codex-verifiable | none | 株価/業績APIをサーバー側Route Handler経由に統一 | local validation and safety scan completed; draft PR #1 opened; GitHub Actions run `28337959243` succeeded |
