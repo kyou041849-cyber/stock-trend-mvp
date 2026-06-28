@@ -114,3 +114,50 @@ https://github.com/kyou041849-cyber/stock-trend-mvp.git
 1. GitHub Actionsの結果を確認し、必要ならCI調整を行う。
 2. CIバッジをREADMEへ追加する。
 3. localStorageバックアップの世代管理と復元前比較を追加する。
+
+## CI Install Failure Fix
+
+Status: completed, GitHub Actions recheck pending
+
+### Failure
+
+GitHub Actions failed at:
+
+```text
+Install dependencies
+pnpm install --frozen-lockfile
+```
+
+Error:
+
+```text
+ERROR packages field missing or empty
+```
+
+### Cause
+
+`pnpm-workspace.yaml` existed but did not define `packages`. Because this repository is a single-package app, pnpm needs the root package listed explicitly.
+
+### Fix
+
+`pnpm-workspace.yaml` was updated to:
+
+```yaml
+packages:
+  - "."
+
+allowBuilds:
+  sharp: true
+```
+
+### Validation
+
+- `pnpm install --frozen-lockfile`: success
+- `npm.cmd run typecheck`: success
+- `npm.cmd run test`: success
+- `npm.cmd run build`: success
+- `npm.cmd run test:e2e -- --reporter=line`: success, 3 passed
+
+### GitHub Actions
+
+Pushing the fix to `origin/main` should trigger a new CI run. Confirm the latest `CI` run in GitHub Actions after push.

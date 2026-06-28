@@ -212,3 +212,44 @@ Goal map note:
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
 | G005 | accepted | manager | codex-verifiable | none | GitHub Actions CI追加 | workflow, README/docs, and Goal Loop record updated; local validation succeeded; record commit to be pushed to `origin/main` |
+
+## G005 CI Fix Update
+
+Status: completed, GitHub Actions recheck pending
+
+Failure:
+
+- GitHub Actions step: `Install dependencies`
+- command: `pnpm install --frozen-lockfile`
+- error: `ERROR packages field missing or empty`
+
+Cause:
+
+- `pnpm-workspace.yaml` existed but did not define `packages`.
+- The project is a single-package app, so pnpm workspace needs `packages: ["." ]`.
+
+Fix:
+
+- Updated `pnpm-workspace.yaml`:
+
+```yaml
+packages:
+  - "."
+
+allowBuilds:
+  sharp: true
+```
+
+Validation:
+
+- `pnpm install --frozen-lockfile`: success
+- `npm.cmd run typecheck`: success
+- `npm.cmd run test`: success
+- `npm.cmd run build`: success
+- `npm.cmd run test:e2e -- --reporter=line`: success, 3 passed
+
+Goal map note:
+
+| ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
+|---|---|---|---|---|---|---|
+| G005-fix | accepted | manager | codex-verifiable | GitHub Actions re-run | pnpm workspace設定を修正し、CI install失敗を解消 | local frozen install and validation succeeded; push will trigger CI re-run |
