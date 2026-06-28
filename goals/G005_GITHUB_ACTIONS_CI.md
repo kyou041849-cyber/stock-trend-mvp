@@ -244,3 +244,60 @@ Status: human-needed
 ### Remaining Evidence Needed
 
 Codex still needs the latest GitHub Actions `CI` run status from GitHub UI. If it failed, share the failing step name and the relevant error log. This is tracked as `H003` in `goals/HUMAN_NEEDED.md`.
+
+## E2E Argument Forwarding Fix
+
+Status: completed, GitHub Actions recheck pending
+
+### Latest Run Inspected
+
+- run: `28325049150`
+- commit: `6bd8ac5 docs: record ci recheck requirement`
+- job: `Typecheck, test, build, and E2E`
+- failed step: `E2E smoke tests`
+
+### Passing Steps
+
+- `Install dependencies`: success
+- `Install Playwright browser`: success
+- `Typecheck`: success
+- `Unit tests`: success
+- `Build`: success
+
+### Failure
+
+The E2E step failed with:
+
+```text
+Error: No tests found.
+Make sure that arguments are regular expressions matching test files.
+```
+
+The workflow command was:
+
+```bash
+pnpm run test:e2e -- --reporter=line
+```
+
+pnpm invoked the project script as:
+
+```bash
+node scripts/run-e2e.js -- --reporter=line
+```
+
+`scripts/run-e2e.js` forwarded the standalone `--` to Playwright. On Linux CI, Playwright treated that standalone `--` as a test-file pattern, so no test files matched.
+
+### Fix
+
+`scripts/run-e2e.js` now removes standalone `--` arguments before passing options to Playwright.
+
+### Validation
+
+- `pnpm run test:e2e -- --reporter=line`: success, 3 passed
+- `pnpm run typecheck`: success
+- `pnpm run test`: success
+- `pnpm run build`: success
+
+### GitHub Actions
+
+Pushing the fix to `origin/main` should trigger a new CI run for the corrected argument handling.

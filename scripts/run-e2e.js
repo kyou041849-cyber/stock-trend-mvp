@@ -3,7 +3,7 @@ const http = require("node:http");
 
 const port = process.env.E2E_PORT || "3010";
 const baseURL = `http://127.0.0.1:${port}`;
-const args = process.argv.slice(2);
+const args = process.argv.slice(2).filter((arg) => arg !== "--");
 
 function waitForServer(url, timeoutMs = 120_000) {
   const startedAt = Date.now();

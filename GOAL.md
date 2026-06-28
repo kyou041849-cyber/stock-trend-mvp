@@ -71,7 +71,7 @@ Checklist: [goals/HUMAN_NEEDED.md](goals/HUMAN_NEEDED.md)
 
 | Item | Blocks | Summary | Status |
 |---|---|---|---|
-| H003 | G005 CI成功判定 | GitHub Actions最新CI runの成功/失敗と、失敗時の赤いstepログ確認が必要 | open |
+| none | none | 現在のhuman-neededはなし | n/a |
 
 ## Review / Integration / Push Policy
 
@@ -322,3 +322,38 @@ Goal map note:
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
 | G005-recheck | human-needed | manager | human-decision | GitHub UI latest CI status | CI最新runの結果確認 | local validation succeeded; GitHub Actions run result not retrievable from current tools; see H003 |
+
+## G005 E2E Argument Fix Update
+
+Status: completed, GitHub Actions recheck pending
+
+Latest run inspected:
+
+- run: `28325049150`
+- commit: `6bd8ac5 docs: record ci recheck requirement`
+- job: `Typecheck, test, build, and E2E`
+- failed step: `E2E smoke tests`
+
+Cause:
+
+- GitHub Actions executed `pnpm run test:e2e -- --reporter=line`.
+- pnpm invoked `node scripts/run-e2e.js -- --reporter=line`.
+- `scripts/run-e2e.js` forwarded the standalone `--` to Playwright.
+- On Linux CI, Playwright treated that standalone `--` as a test-file pattern and exited with `Error: No tests found.`
+
+Fix:
+
+- `scripts/run-e2e.js` now filters standalone `--` from forwarded arguments before invoking Playwright.
+
+Validation:
+
+- `pnpm run test:e2e -- --reporter=line`: success, 3 passed
+- `pnpm run typecheck`: success
+- `pnpm run test`: success
+- `pnpm run build`: success
+
+Goal map note:
+
+| ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
+|---|---|---|---|---|---|---|
+| G005-e2e-args | accepted | manager | codex-verifiable | GitHub Actions re-run | E2Eの引数転送不具合を修正 | failing step and log inspected; local pnpm validation succeeded; push will trigger CI re-run |
