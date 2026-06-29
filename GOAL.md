@@ -66,7 +66,7 @@ G007: 実株価データ接続（日本株 + 米国株）。
 | G001 | blocked | manager | codex-verifiable | human decision on remote existing history | none | GitHubリモートpush | main push was attempted and rejected because remote main already contains work; no force push used | n/a |
 | G002 | human-needed | manager | human-decision | none | none | GitHubリモート既存履歴の確認と安全な統合方針決定 | remote main was inspected and judged unrelated to stock-trend-mvp; user decision required before any merge/push | [goals/G002_REMOTE_HISTORY.md](goals/G002_REMOTE_HISTORY.md) |
 | G006 | accepted | manager | codex-verifiable | none | none | 株価/業績APIをサーバー側Route Handler経由に統一 | server routes, client adapter proxying, settings safety copy, tests, docs, E2E, safety scan, PR, and CI completed | [goals/G006_SERVER_SIDE_MARKET_API.md](goals/G006_SERVER_SIDE_MARKET_API.md) |
-| G007 | human-needed | manager | codex-verifiable | G006 merged to main | none | 実株価データ接続（日本株 + 米国株） | branch pushed; local validation passed; PR creation blocked by GitHub connector 403 and missing `gh`; human can open PR URL | [goals/G007_REALDATA_JP_US.md](goals/G007_REALDATA_JP_US.md) |
+| G007 | accepted | manager | codex-verifiable | G006 merged to main | none | 実株価データ接続（日本株 + 米国株） | PR #2 opened; local validation and PR CI succeeded; live provider/base URL/key confirmation remains manual | [goals/G007_REALDATA_JP_US.md](goals/G007_REALDATA_JP_US.md) |
 
 ## Human-Needed Queue / Checkpoints
 

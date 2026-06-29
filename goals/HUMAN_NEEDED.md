@@ -2,15 +2,7 @@
 
 ## Now Needed
 
-### H004: G007 PRをGitHub UIで作成する
-
-- 状態: open
-- Blocks: G007 PR CI confirmation / merge readiness
-- 推奨: 次のURLから `base: main` / `compare: codex/g007-realdata-jp-us` のPRを作成してください。
-- PR作成URL: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/new/codex/g007-realdata-jp-us`
-- 理由: GitHub connectorのPR作成が `403 Resource not accessible by integration` で拒否され、ローカルに `gh` CLI もありません。
-- Codex側で完了済み: branch push、typecheck/test/build/E2E、安全検索、G007記録。
-- PR作成後に必要なこと: 最新CIの結果を確認し、必要ならCodexに続行を依頼してください。
+なし。
 
 ## Resolved
 
@@ -41,6 +33,15 @@
   - cause: `pnpm run test:e2e -- --reporter=line` が `node scripts/run-e2e.js -- --reporter=line` として実行され、Linux上で先頭の `--` がPlaywrightへ渡り `No tests found` になっていた。
 - 関連記録:
   - [goals/G005_GITHUB_ACTIONS_CI.md](G005_GITHUB_ACTIONS_CI.md)
+
+### H004: G007 PRをGitHub UIで作成する
+
+- 状態: resolved
+- 解消内容: GitHub connectorのPR作成は `403 Resource not accessible by integration` で拒否されたが、ローカルGit認証を使ったGitHub REST APIでPR #2を作成した。
+- PR: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/2`
+- CI: run `28348160444`, conclusion `success`
+- 関連記録:
+  - [goals/G007_REALDATA_JP_US.md](G007_REALDATA_JP_US.md)
 
 ## Later / Deferred
 
