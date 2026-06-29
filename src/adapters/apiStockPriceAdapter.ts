@@ -1,5 +1,5 @@
 import { apiDataSource } from "../lib/dataSource";
-import type { StockPriceApiSettings, StockPriceFetchPeriod } from "../lib/types";
+import type { MarketRegion, StockPriceApiSettings, StockPriceFetchPeriod } from "../lib/types";
 import { formatStockPricePeriod } from "../lib/updateHistory";
 import type { StockPriceApiFetchResult } from "../types/api";
 
@@ -21,6 +21,7 @@ export const ApiStockPriceAdapter = {
     ticker: string,
     period: StockPriceFetchPeriod,
     settings: StockPriceApiSettings,
+    options: { marketRegion?: MarketRegion } = {},
   ): Promise<StockPriceApiFetchResult> {
     const now = new Date().toISOString();
     const dataSource = apiDataSource(
@@ -37,6 +38,7 @@ export const ApiStockPriceAdapter = {
           ticker,
           period,
           providerName: settings.providerName,
+          marketRegion: options.marketRegion,
         }),
       });
       const payload = await response.json().catch(() => null) as unknown;

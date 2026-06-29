@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { ApiFundamentalAdapter } from "../src/adapters/apiFundamentalAdapter";
 import { ApiStockPriceAdapter } from "../src/adapters/apiStockPriceAdapter";
 import { FORBIDDEN_MOCK_LLM_PHRASES } from "../src/adapters/mockLlmAdapter";
@@ -57,13 +59,23 @@ import {
   restoreLocalStorageBackup,
 } from "../src/lib/localStorageBackup";
 import {
+  extractMarketApiMessage,
   extractFundamentalApiRows,
   extractStockPriceApiRows,
 } from "../src/lib/marketApiParsing";
 import {
+  currencyForMarketRegion,
+  normalizeTickerForMarket,
+  resolveMarketRegion,
+} from "../src/lib/normalization";
+import {
   buildServerMarketApiUrl,
+  fetchServerMarketApiJson,
   getServerMarketApiConfig,
 } from "../src/lib/serverMarketApi";
+import {
+  normalizeApiStockPriceRows,
+} from "../src/lib/stockPriceNormalizer";
 import {
   deleteLlmOutputFromList,
   isLlmOutputCurrent,
@@ -105,7 +117,8 @@ import {
 import { mergeNewsItems } from "../src/lib/newsDeduplication";
 import { calculateTrendAnalysis } from "../src/lib/stock-math";
 import { generateMockLlmAnalysis, generateRealLlmAnalysis } from "../src/services/llmService";
-import type { EarningsCalendarItem, LlmOutputType, NewsItem, PriceRow, StockProfile } from "../src/lib/types";
+import { updateStockPricesFromApi } from "../src/services/stockPriceUpdateService";
+import type { EarningsCalendarItem, LlmOutputType, MarketRegion, NewsItem, PriceRow, StockProfile } from "../src/lib/types";
 
 function makePrices(count: number): PriceRow[] {
   return Array.from({ length: count }, (_, index) => {
@@ -187,6 +200,10 @@ function createMemoryStorage(initial: Record<string, string> = {}) {
       return Object.fromEntries(data.entries());
     },
   };
+}
+
+function loadStockPriceFixture(fileName: string): unknown {
+  return JSON.parse(readFileSync(join(process.cwd(), "tests", "fixtures", "stock-price", fileName), "utf8")) as unknown;
 }
 
 function makeStockFixture(): StockProfile {
@@ -577,7 +594,124 @@ async function run(): Promise<void> {
   })?.length, 1);
   assert.equal(extractFundamentalApiRows({ fundamentals: [{ fiscalYear: 2026, revenue: "1000" }] })?.length, 1);
 
+  assert.equal(normalizeTickerForMarket("7203", "JP"), "7203.T");
+  assert.equal(normalizeTickerForMarket("7203.T", "JP"), "7203.T");
+  assert.equal(normalizeTickerForMarket("aapl", "US"), "AAPL");
+  assert.equal(resolveMarketRegion({ ticker: "7203", region: "JP" }), "JP");
+  assert.equal(resolveMarketRegion({ ticker: "AAPL", market: "NASDAQ" }), "US");
+  assert.equal(currencyForMarketRegion("JP"), "JPY");
+  assert.equal(currencyForMarketRegion("US"), "USD");
+
+  const jpAlphaFixture = loadStockPriceFixture("av_jp_7203T_daily.json");
+  const jpAlphaRows = extractStockPriceApiRows(jpAlphaFixture);
+  assert.notEqual(jpAlphaRows, null);
+  assert.equal(jpAlphaRows?.length, 3);
+  const jpNormalized = normalizeApiStockPriceRows(jpAlphaRows!, manualDataSource("2026-02-01T00:00:00.000Z"), "2026-02-02T00:00:00.000Z", {
+    marketRegion: "JP",
+    currency: "JPY",
+  });
+  assert.equal(jpNormalized.ok, true);
+  assert.deepEqual(jpNormalized.rows.map(({ date: rowDate, open, high, low, close, volume, marketRegion, currency }) => ({
+    date: rowDate,
+    open,
+    high,
+    low,
+    close,
+    volume,
+    marketRegion,
+    currency,
+  })), [
+    { date: "2026-01-05", open: 2900, high: 2930.5, low: 2880, close: 2920, volume: 31234500, marketRegion: "JP", currency: "JPY" },
+    { date: "2026-01-06", open: 2925, high: 2960, low: 2910, close: 2948.5, volume: 28450000, marketRegion: "JP", currency: "JPY" },
+    { date: "2026-01-07", open: 2950, high: 2988, low: 2935.5, close: 2975, volume: 33500100, marketRegion: "JP", currency: "JPY" },
+  ]);
+
+  const usAlphaFixture = loadStockPriceFixture("av_us_aapl_daily.json");
+  const usAlphaRows = extractStockPriceApiRows(usAlphaFixture);
+  assert.notEqual(usAlphaRows, null);
+  assert.equal(usAlphaRows?.length, 3);
+  const usNormalized = normalizeApiStockPriceRows(usAlphaRows!, manualDataSource("2026-02-01T00:00:00.000Z"), "2026-02-02T00:00:00.000Z", {
+    marketRegion: "US",
+    currency: "USD",
+  });
+  assert.equal(usNormalized.ok, true);
+  assert.deepEqual(usNormalized.rows.map(({ date: rowDate, open, high, low, close, volume, marketRegion, currency }) => ({
+    date: rowDate,
+    open,
+    high,
+    low,
+    close,
+    volume,
+    marketRegion,
+    currency,
+  })), [
+    { date: "2026-01-05", open: 190.1, high: 193, low: 189.5, close: 192.4, volume: 55201000, marketRegion: "US", currency: "USD" },
+    { date: "2026-01-06", open: 193, high: 196.25, low: 192.2, close: 195.32, volume: 48765000, marketRegion: "US", currency: "USD" },
+    { date: "2026-01-07", open: 195.5, high: 198, low: 194.75, close: 197.8, volume: 50123456, marketRegion: "US", currency: "USD" },
+  ]);
+
+  const missingFieldRows = extractStockPriceApiRows(loadStockPriceFixture("av_missing_fields.json"));
+  assert.notEqual(missingFieldRows, null);
+  const missingFieldNormalized = normalizeApiStockPriceRows(missingFieldRows!, manualDataSource("2026-02-01T00:00:00.000Z"), "2026-02-02T00:00:00.000Z", {
+    marketRegion: "US",
+    currency: "USD",
+  });
+  assert.equal(missingFieldNormalized.ok, false);
+  assert.equal(missingFieldNormalized.rows.length, 1);
+  assert.equal(missingFieldNormalized.errors.some((message) => message.includes("open") && message.includes("volume")), true);
+
+  const holidayGapRows = extractStockPriceApiRows(loadStockPriceFixture("av_holiday_gap.json"));
+  assert.notEqual(holidayGapRows, null);
+  const holidayGapNormalized = normalizeApiStockPriceRows(holidayGapRows!, manualDataSource("2026-02-01T00:00:00.000Z"), "2026-02-02T00:00:00.000Z", {
+    marketRegion: "JP",
+    currency: "JPY",
+  });
+  assert.equal(holidayGapNormalized.ok, true);
+  assert.deepEqual(holidayGapNormalized.rows.map((row) => row.date), ["2026-01-02", "2026-01-06"]);
+  assert.equal(holidayGapNormalized.rows.some((row) => row.date === "2026-01-05"), false);
+
+  const emptyRows = extractStockPriceApiRows(loadStockPriceFixture("empty.json"));
+  assert.deepEqual(emptyRows, []);
+  assert.equal(extractStockPriceApiRows(loadStockPriceFixture("malformed.json")), null);
+  assert.match(extractMarketApiMessage(loadStockPriceFixture("av_rate_limit_note.json")), /rate limit/i);
+
   const originalFetchForMarketAdapters = globalThis.fetch;
+  let serverMarketApiUrl = "";
+  globalThis.fetch = async (input) => {
+    serverMarketApiUrl = String(input);
+    assert.equal(serverMarketApiUrl.includes("SECRET_API_KEY"), false);
+    assert.equal(serverMarketApiUrl.includes("symbol=7203.T"), true);
+    return new Response(JSON.stringify(jpAlphaFixture), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  const serverSuccessResult = await fetchServerMarketApiJson({
+    config: { apiKey: "SECRET_API_KEY", baseUrl: "https://example.com/prices" },
+    params: { symbol: "7203.T", period: "1m", marketRegion: "JP" },
+  });
+  assert.equal(serverSuccessResult.ok, true);
+  if (serverSuccessResult.ok) {
+    assert.equal(extractStockPriceApiRows(serverSuccessResult.payload)?.length, 3);
+  }
+
+  globalThis.fetch = async () => new Response(JSON.stringify(loadStockPriceFixture("av_rate_limit_note.json")), { status: 429, headers: { "Content-Type": "application/json" } });
+  const serverRateLimitResult = await fetchServerMarketApiJson({
+    config: { apiKey: "SECRET_API_KEY", baseUrl: "https://example.com/prices" },
+    params: { symbol: "AAPL", period: "1m", marketRegion: "US" },
+  });
+  assert.equal(serverRateLimitResult.ok, false);
+  if (!serverRateLimitResult.ok) {
+    assert.equal(serverRateLimitResult.status, "rate-limited");
+  }
+
+  globalThis.fetch = async () => new Response("not-json", { status: 200, headers: { "Content-Type": "application/json" } });
+  const serverInvalidJsonResult = await fetchServerMarketApiJson({
+    config: { apiKey: "SECRET_API_KEY", baseUrl: "https://example.com/prices" },
+    params: { symbol: "AAPL", period: "1m", marketRegion: "US" },
+  });
+  assert.equal(serverInvalidJsonResult.ok, false);
+  if (!serverInvalidJsonResult.ok) {
+    assert.equal(serverInvalidJsonResult.status, "invalid-format");
+  }
+
   let stockAdapterRequestBody = "";
   globalThis.fetch = async (input, init) => {
     assert.equal(input, "/api/stock-prices");
@@ -599,9 +733,89 @@ async function run(): Promise<void> {
     enabled: true,
     mockMode: false,
     lastConnectionCheckedAt: "",
-  });
+  }, { marketRegion: "JP" });
   assert.equal(stockRouteResult.ok, true);
-  assert.deepEqual(Object.keys(JSON.parse(stockAdapterRequestBody)).sort(), ["period", "providerName", "ticker"]);
+  assert.deepEqual(Object.keys(JSON.parse(stockAdapterRequestBody)).sort(), ["marketRegion", "period", "providerName", "ticker"]);
+
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    ok: true,
+    status: "success",
+    rawRows: missingFieldRows,
+    dataSource: manualDataSource("2026-02-01T00:00:00.000Z"),
+    message: "ok",
+    marketRegion: "US" satisfies MarketRegion,
+    currency: "USD",
+  }), { status: 200, headers: { "Content-Type": "application/json" } });
+  const missingFieldUpdate = await updateStockPricesFromApi(stock, {
+    providerName: "Alpha Vantage",
+    apiKey: "SECRET_API_KEY",
+    baseUrl: "https://secret.example/prices",
+    enabled: true,
+    mockMode: false,
+    lastConnectionCheckedAt: "",
+  }, "1m");
+  assert.equal(missingFieldUpdate.ok, false);
+  assert.equal(missingFieldUpdate.history.dataSource.status, "invalid-format");
+
+  const makeStockRoutePayload = (input: {
+    ok: boolean;
+    status: "success" | "empty" | "rate-limited" | "api-not-configured" | "failed" | "invalid-format";
+    rawRows?: Record<string, unknown>[];
+    message: string;
+    marketRegion?: MarketRegion;
+    currency?: "JPY" | "USD" | "UNKNOWN";
+  }) => ({
+    ok: input.ok,
+    status: input.status,
+    rawRows: input.rawRows ?? [],
+    dataSource: {
+      ...manualDataSource("2026-02-01T00:00:00.000Z"),
+      status: input.status,
+      message: input.message,
+    },
+    message: input.message,
+    marketRegion: input.marketRegion,
+    currency: input.currency,
+  });
+
+  globalThis.fetch = async () => new Response(JSON.stringify(makeStockRoutePayload({
+    ok: true,
+    status: "success",
+    rawRows: jpAlphaRows!,
+    message: "ok",
+    marketRegion: "JP",
+    currency: "JPY",
+  })), { status: 200, headers: { "Content-Type": "application/json" } });
+  const successUpdate = await updateStockPricesFromApi(stock, {
+    providerName: "Alpha Vantage",
+    apiKey: "SECRET_API_KEY",
+    baseUrl: "https://secret.example/prices",
+    enabled: true,
+    mockMode: false,
+    lastConnectionCheckedAt: "",
+  }, "1m");
+  assert.equal(successUpdate.ok, true);
+  assert.equal(successUpdate.stock.prices.some((row) => row.date === "2026-01-07" && row.marketRegion === "JP" && row.currency === "JPY"), true);
+
+  for (const status of ["empty", "rate-limited", "api-not-configured", "failed"] as const) {
+    globalThis.fetch = async () => new Response(JSON.stringify(makeStockRoutePayload({
+      ok: false,
+      status,
+      message: `status ${status}`,
+      marketRegion: "US",
+      currency: "USD",
+    })), { status: status === "api-not-configured" ? 503 : status === "rate-limited" ? 429 : status === "empty" ? 404 : 502, headers: { "Content-Type": "application/json" } });
+    const mappedUpdate = await updateStockPricesFromApi(stock, {
+      providerName: "Alpha Vantage",
+      apiKey: "SECRET_API_KEY",
+      baseUrl: "https://secret.example/prices",
+      enabled: true,
+      mockMode: false,
+      lastConnectionCheckedAt: "",
+    }, "1m");
+    assert.equal(mappedUpdate.ok, false);
+    assert.equal(mappedUpdate.history.dataSource.status, status);
+  }
 
   let fundamentalAdapterRequestBody = "";
   globalThis.fetch = async (input, init) => {

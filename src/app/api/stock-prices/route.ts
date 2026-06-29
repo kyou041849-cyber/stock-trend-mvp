@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { apiDataSource } from "@/lib/dataSource";
 import { extractMarketApiMessage, extractStockPriceApiRows } from "@/lib/marketApiParsing";
+import { currencyForMarketRegion, normalizeTickerForMarket, resolveMarketRegion } from "@/lib/normalization";
 import { fetchServerMarketApiJson, getServerMarketApiConfig } from "@/lib/serverMarketApi";
 import { formatStockPricePeriod } from "@/lib/updateHistory";
-import type { StockPriceFetchPeriod } from "@/lib/types";
+import type { CurrencyCode, MarketRegion, StockPriceFetchPeriod } from "@/lib/types";
 import type { StockPriceApiFetchResult } from "@/types/api";
 
 export const runtime = "nodejs";
@@ -19,6 +20,9 @@ function errorResult(input: {
   period: StockPriceFetchPeriod;
   status: StockPriceApiFetchResult["status"];
   message: string;
+  normalizedTicker?: string;
+  marketRegion?: MarketRegion;
+  currency?: CurrencyCode;
 }): StockPriceApiFetchResult {
   return {
     ok: false,
@@ -30,6 +34,9 @@ function errorResult(input: {
       message: input.message,
     },
     message: input.message,
+    normalizedTicker: input.normalizedTicker,
+    marketRegion: input.marketRegion,
+    currency: input.currency,
   };
 }
 
@@ -38,7 +45,11 @@ export async function POST(request: Request) {
   const ticker = typeof body?.ticker === "string" ? body.ticker.trim() : "";
   const providerName = typeof body?.providerName === "string" ? body.providerName.trim() : "";
   const period = isStockPricePeriod(body?.period) ? body.period : "1m";
-  const dataSource = apiDataSource(providerName || "株価データAPI", new Date().toISOString(), `取得期間：${formatStockPricePeriod(period)}`);
+  const marketRegion = resolveMarketRegion({ ticker, region: body?.marketRegion });
+  const normalizedTicker = normalizeTickerForMarket(ticker, marketRegion);
+  const currency = currencyForMarketRegion(marketRegion);
+  const requestSummary = `取得期間：${formatStockPricePeriod(period)} / 市場：${marketRegion} / 通貨：${currency} / 取得ティッカー：${normalizedTicker || "-"}`;
+  const dataSource = apiDataSource(providerName || "株価データAPI", new Date().toISOString(), requestSummary);
 
   if (!ticker) {
     return NextResponse.json(errorResult({
@@ -46,6 +57,8 @@ export async function POST(request: Request) {
       period,
       status: "invalid-format",
       message: "対象銘柄のティッカーが未設定です。",
+      marketRegion,
+      currency,
     }), { status: 400 });
   }
 
@@ -56,15 +69,21 @@ export async function POST(request: Request) {
       period,
       status: "api-not-configured",
       message: config.message,
+      normalizedTicker,
+      marketRegion,
+      currency,
     }), { status: 503 });
   }
 
   const fetchResult = await fetchServerMarketApiJson({
     config: config.config,
     params: {
-      symbol: ticker,
-      ticker,
+      symbol: normalizedTicker,
+      ticker: normalizedTicker,
       period,
+      region: marketRegion,
+      marketRegion,
+      currency,
     },
   });
 
@@ -74,6 +93,9 @@ export async function POST(request: Request) {
       period,
       status: fetchResult.status,
       message: fetchResult.message,
+      normalizedTicker,
+      marketRegion,
+      currency,
     }), { status: fetchResult.httpStatus });
   }
 
@@ -84,6 +106,9 @@ export async function POST(request: Request) {
       period,
       status: "rate-limited",
       message: "APIのレート制限に達しました。時間を置いて再確認してください。",
+      normalizedTicker,
+      marketRegion,
+      currency,
     }), { status: 429 });
   }
 
@@ -95,6 +120,9 @@ export async function POST(request: Request) {
       period,
       status: "invalid-format",
       message: apiMessage || "APIレスポンス形式が不正です。アダプタ設定を確認してください。",
+      normalizedTicker,
+      marketRegion,
+      currency,
     }), { status: 502 });
   }
 
@@ -104,6 +132,9 @@ export async function POST(request: Request) {
       period,
       status: "empty",
       message: "対象ティッカーの株価データが見つかりませんでした。",
+      normalizedTicker,
+      marketRegion,
+      currency,
     }), { status: 404 });
   }
 
@@ -113,9 +144,12 @@ export async function POST(request: Request) {
     rawRows,
     dataSource: {
       ...dataSource,
-      message: `取得期間：${formatStockPricePeriod(period)} / 取得件数：${rawRows.length}件`,
+      message: `${requestSummary} / 取得件数：${rawRows.length}件`,
     },
     message: `APIから株価データを取得しました（${rawRows.length}件）。`,
+    normalizedTicker,
+    marketRegion,
+    currency,
   };
 
   return NextResponse.json(result);

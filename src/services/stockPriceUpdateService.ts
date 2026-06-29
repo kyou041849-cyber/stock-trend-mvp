@@ -1,23 +1,23 @@
-import { ApiStockPriceAdapter } from "@/adapters/apiStockPriceAdapter";
-import { MockStockPriceApiAdapter } from "@/adapters/mockStockPriceApiAdapter";
-import { apiPlannedDataSource, mockApiDataSource } from "@/lib/dataSource";
+import { ApiStockPriceAdapter } from "../adapters/apiStockPriceAdapter";
+import { MockStockPriceApiAdapter } from "../adapters/mockStockPriceApiAdapter";
+import { apiPlannedDataSource, mockApiDataSource } from "../lib/dataSource";
 import {
   filterRowsByPeriod,
   mergeStockPriceRows,
   normalizeApiStockPriceRows,
-} from "@/lib/stockPriceNormalizer";
+} from "../lib/stockPriceNormalizer";
 import {
   createStockPriceUpdateHistory,
   formatStockPricePeriod,
   prependStockPriceUpdateHistory,
-} from "@/lib/updateHistory";
+} from "../lib/updateHistory";
 import type {
   DataSourceInfo,
   StockPriceApiSettings,
   StockPriceFetchPeriod,
   StockPriceUpdateHistory,
   StockProfile,
-} from "@/lib/types";
+} from "../lib/types";
 
 export type StockPriceUpdateResult = {
   ok: boolean;
@@ -108,7 +108,7 @@ export async function updateStockPricesFromApi(
 
   const fetchResult = useMockApi
     ? await MockStockPriceApiAdapter.fetchPrices(stock.ticker, period)
-    : await ApiStockPriceAdapter.fetchPrices(stock.ticker, period, settings);
+    : await ApiStockPriceAdapter.fetchPrices(stock.ticker, period, settings, { marketRegion: stock.region });
 
   if (!fetchResult.ok) {
     return createFailureResult({
@@ -120,7 +120,10 @@ export async function updateStockPricesFromApi(
     });
   }
 
-  const normalized = normalizeApiStockPriceRows(fetchResult.rawRows, fetchResult.dataSource, updatedAt);
+  const normalized = normalizeApiStockPriceRows(fetchResult.rawRows, fetchResult.dataSource, updatedAt, {
+    marketRegion: fetchResult.marketRegion ?? stock.region,
+    currency: fetchResult.currency ?? stock.currency,
+  });
 
   if (!normalized.ok) {
     return createFailureResult({

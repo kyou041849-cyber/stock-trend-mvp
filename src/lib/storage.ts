@@ -133,6 +133,8 @@ function normalizePriceRow(value: unknown): PriceRow | null {
   const row = value as Record<string, unknown>;
   const updatedAt = readString(row.updatedAt);
   const fallbackSource = row.source ? manualDataSource(updatedAt || new Date().toISOString()) : undefined;
+  const marketRegion = ["JP", "US", "OTHER"].includes(String(row.marketRegion)) ? row.marketRegion as MarketRegion : undefined;
+  const currency = ["JPY", "USD", "UNKNOWN"].includes(String(row.currency)) ? row.currency as CurrencyCode : undefined;
 
   return {
     date: value.date,
@@ -141,6 +143,8 @@ function normalizePriceRow(value: unknown): PriceRow | null {
     low: value.low,
     close: value.close,
     volume: value.volume,
+    marketRegion,
+    currency,
     source: fallbackSource ? normalizeDataSource(row.source, fallbackSource) : undefined,
     updatedAt: updatedAt || undefined,
   };

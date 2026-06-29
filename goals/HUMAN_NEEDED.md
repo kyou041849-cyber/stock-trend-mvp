@@ -34,7 +34,17 @@
 - 関連記録:
   - [goals/G005_GITHUB_ACTIONS_CI.md](G005_GITHUB_ACTIONS_CI.md)
 
+### H004: G007 PRをGitHub UIで作成する
+
+- 状態: resolved
+- 解消内容: GitHub connectorのPR作成は `403 Resource not accessible by integration` で拒否されたが、ローカルGit認証を使ったGitHub REST APIでPR #2を作成した。
+- PR: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/2`
+- CI: run `28348160444`, conclusion `success`
+- 関連記録:
+  - [goals/G007_REALDATA_JP_US.md](G007_REALDATA_JP_US.md)
+
 ## Later / Deferred
 
 - 実株価API・実業績APIの本格接続は別Goalで扱う。
+- G007の実株価APIライブ疎通では、人間がプロバイダ、base URL、APIキーを `.env.local` に設定して `node scripts/live-stock-smoke.mjs` を実行する。
 - localStorageバックアップの世代管理や履歴整理は別Goalで扱う。

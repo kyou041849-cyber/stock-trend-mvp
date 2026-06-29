@@ -1,5 +1,5 @@
 import { sortPriceRows } from "./stock-math";
-import type { DataSourceInfo, PriceRow, StockPriceFetchPeriod } from "./types";
+import type { CurrencyCode, DataSourceInfo, MarketRegion, PriceRow, StockPriceFetchPeriod } from "./types";
 
 export type ApiStockPriceRawRow = Record<string, unknown>;
 
@@ -7,6 +7,11 @@ export type StockPriceNormalizeResult = {
   ok: boolean;
   rows: PriceRow[];
   errors: string[];
+};
+
+export type StockPriceNormalizeContext = {
+  marketRegion?: MarketRegion;
+  currency?: CurrencyCode;
 };
 
 function readRawValue(row: ApiStockPriceRawRow, keys: string[]): unknown {
@@ -77,6 +82,7 @@ export function normalizeApiStockPriceRows(
   rawRows: ApiStockPriceRawRow[],
   source: DataSourceInfo,
   updatedAt = new Date().toISOString(),
+  context: StockPriceNormalizeContext = {},
 ): StockPriceNormalizeResult {
   const errors: string[] = [];
   const rowsByDate = new Map<string, PriceRow>();
@@ -126,6 +132,8 @@ export function normalizeApiStockPriceRows(
       low,
       close,
       volume,
+      marketRegion: context.marketRegion,
+      currency: context.currency,
       source,
       updatedAt,
     });
