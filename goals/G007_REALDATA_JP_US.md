@@ -2,7 +2,7 @@
 
 ## Status
 
-in-progress
+human-needed
 
 ## Objective
 
@@ -44,17 +44,24 @@ in-progress
 
 ## Validation
 
-Current local validation:
+Local validation:
 
 - `pnpm run typecheck`: success
 - `pnpm run test`: success
+- `pnpm run build`: success
+- `pnpm run test:e2e -- --reporter=line`: success, 3 passed
+- secret scan: no real API key found; hits are env var names, docs, server-side adapters, `risk-` / `task-` false positives, and test fake values
 
-Remaining before PR:
+Branch / commit:
 
-- `pnpm run build`
-- `pnpm run test:e2e -- --reporter=line`
-- secret scan
-- commit / push branch / PR / CI confirmation
+- branch: `codex/g007-realdata-jp-us`
+- commit: `0061c01 feat: connect real stock price data for JP and US with fixtures`
+- push: completed to `origin/codex/g007-realdata-jp-us`
+
+Remaining:
+
+- PR creation
+- PR CI confirmation
 
 ## Safety
 
@@ -67,5 +74,7 @@ Remaining before PR:
 
 ## Human-Needed / Deferred
 
+- PR creation is human-needed because GitHub connector returned `403 Resource not accessible by integration` and local `gh` CLI is not installed.
+- PR URL: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/new/codex/g007-realdata-jp-us`
 - 実プロバイダの確定、base URLの確定、実APIキー投入、ライブ疎通は人間が実施する。
 - `scripts/live-stock-smoke.mjs` は手動確認用であり、CIでは実行しない。

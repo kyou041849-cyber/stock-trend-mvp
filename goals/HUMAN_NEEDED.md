@@ -2,7 +2,15 @@
 
 ## Now Needed
 
-なし。
+### H004: G007 PRをGitHub UIで作成する
+
+- 状態: open
+- Blocks: G007 PR CI confirmation / merge readiness
+- 推奨: 次のURLから `base: main` / `compare: codex/g007-realdata-jp-us` のPRを作成してください。
+- PR作成URL: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/new/codex/g007-realdata-jp-us`
+- 理由: GitHub connectorのPR作成が `403 Resource not accessible by integration` で拒否され、ローカルに `gh` CLI もありません。
+- Codex側で完了済み: branch push、typecheck/test/build/E2E、安全検索、G007記録。
+- PR作成後に必要なこと: 最新CIの結果を確認し、必要ならCodexに続行を依頼してください。
 
 ## Resolved
 
