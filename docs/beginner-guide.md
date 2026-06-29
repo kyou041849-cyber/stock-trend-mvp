@@ -268,14 +268,18 @@ AI分析には必ず注意文が付きます。
 
 ## 10. 実LLMを使う場合
 
-実LLMを使う場合は、`.env.local` にAPIキーを設定します。
+実LLMを使う場合は、APIキーをサーバー側環境変数として設定します。
 
-`.env.local.example` をコピーして、`.env.local` を作成してください。
+`.env.local.example` には設定名の例だけがあります。実キーはGitに入れず、画面やlocalStorageにも保存しません。
 
 ```text
-OPENAI_API_KEY=your-openai-api-key
+OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5-mini
+LLM_API_BASE_URL=
+LLM_API_FORMAT=
 ```
+
+DeepSeekなどOpenAI互換Chat Completionsを使う場合は、`LLM_API_BASE_URL=https://api.deepseek.com`、`LLM_API_FORMAT=chat-completions`、`OPENAI_MODEL=deepseek-v4-flash` のように設定し、キーはサーバープロセスの `DEEPSEEK_API_KEY` で渡します。
 
 APIキーはブラウザ側やlocalStorageには保存されません。  
 サーバー側のAPI Routeからだけ使われます。
@@ -381,7 +385,7 @@ npm.cmd run dev -- -p 3001
 
 まずMock LLMで試してください。
 
-実LLMを使う場合は、`.env.local` に `OPENAI_API_KEY` と `OPENAI_MODEL` があるか確認してください。
+実LLMを使う場合は、サーバー側環境変数にAPIキーと `OPENAI_MODEL` があるか確認してください。DeepSeekなどOpenAI互換Chat Completionsでは `LLM_API_BASE_URL` と `LLM_API_FORMAT` も確認してください。
 
 ## 16. β版で特に確認してほしいこと
 

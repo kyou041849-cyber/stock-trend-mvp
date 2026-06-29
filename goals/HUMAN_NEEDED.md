@@ -2,7 +2,19 @@
 
 ## Now Needed
 
-なし。
+### H005: DeepSeek / OpenAI互換 Chat Completions のライブ疎通
+
+- 状態: human-needed
+- Blocks: ライブ実LLM疎通確認のみ。G009のコード検証、PR、CIはCodex側で継続可能。
+- 推奨デフォルト: まずMock LLMと単体テストで確認し、実キーを使うライブ疎通はユーザーのローカル環境で必要なタイミングに実施する。
+- ユーザーに必要な作業:
+  1. Next.jsサーバーを起動する。
+  2. サーバープロセス環境変数に `DEEPSEEK_API_KEY` を設定する。
+  3. `LLM_API_BASE_URL=https://api.deepseek.com` を設定する。
+  4. `LLM_API_FORMAT=chat-completions` を設定する。
+  5. `OPENAI_MODEL=deepseek-v4-flash` または利用可能な互換モデルを設定する。
+  6. `node scripts/live-llm-smoke.mjs` を実行する。
+- 注意: 実キーをコード、Git、画面、localStorage、ログ、スクリーンショットに残さない。
 
 ## Resolved
 

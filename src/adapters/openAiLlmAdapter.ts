@@ -3,12 +3,37 @@ import { ensureLlmReportNotice, parseStructuredLlmReportJson, structuredLlmRepor
 import { findForbiddenLlmPhrases } from "../lib/llmSafety";
 import type { LlmOutputType, LlmStockResearchContext, StructuredLlmReport } from "../lib/types";
 
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const DEFAULT_LLM_API_BASE_URL = "https://api.openai.com";
+const DEFAULT_LLM_API_FORMAT = "responses";
+const RESPONSES_PATH = "/v1/responses";
+const CHAT_COMPLETIONS_PATH = "/chat/completions";
+
+export type LlmApiFormat = "responses" | "chat-completions";
 
 type OpenAiEnv = {
   [key: string]: string | undefined;
+  LLM_API_KEY?: string;
+  LLM_API_BASE_URL?: string;
+  LLM_API_FORMAT?: string;
+  DEEPSEEK_API_KEY?: string;
   OPENAI_API_KEY?: string;
   OPENAI_MODEL?: string;
+};
+
+export type OpenAiLlmConfig = {
+  ok: true;
+  apiKey: string;
+  apiKeySource: "LLM_API_KEY" | "OPENAI_API_KEY" | "DEEPSEEK_API_KEY";
+  model: string;
+  baseUrl: string;
+  format: LlmApiFormat;
+  endpointUrl: string;
+};
+
+type OpenAiLlmConfigError = {
+  ok: false;
+  message: string;
+  status: "api-not-configured" | "invalid-format";
 };
 
 export type OpenAiLlmGenerateResult =
@@ -24,22 +49,74 @@ export type OpenAiLlmGenerateResult =
       status: "api-not-configured" | "network-error" | "api-error" | "rate-limited" | "invalid-format" | "forbidden-phrase";
     };
 
-export function getOpenAiLlmConfig(env: OpenAiEnv = process.env): { ok: true; apiKey: string; model: string } | { ok: false; message: string } {
-  const apiKey = env.OPENAI_API_KEY?.trim() ?? "";
+function normalizeBaseUrl(baseUrl: string | undefined): string {
+  return (baseUrl?.trim() || DEFAULT_LLM_API_BASE_URL).replace(/\/+$/, "");
+}
+
+function normalizeFormat(format: string | undefined): LlmApiFormat | null {
+  const normalized = (format?.trim() || DEFAULT_LLM_API_FORMAT).toLowerCase();
+  if (normalized === "responses" || normalized === "chat-completions") {
+    return normalized;
+  }
+
+  return null;
+}
+
+function buildEndpointUrl(baseUrl: string, format: LlmApiFormat): string {
+  return `${baseUrl}${format === "chat-completions" ? CHAT_COMPLETIONS_PATH : RESPONSES_PATH}`;
+}
+
+export function getOpenAiLlmConfig(env: OpenAiEnv = process.env): OpenAiLlmConfig | OpenAiLlmConfigError {
+  const format = normalizeFormat(env.LLM_API_FORMAT);
+  if (!format) {
+    return {
+      ok: false,
+      status: "invalid-format",
+      message: "LLM_API_FORMAT は responses または chat-completions を指定してください。",
+    };
+  }
+
+  const baseUrl = normalizeBaseUrl(env.LLM_API_BASE_URL);
   const model = env.OPENAI_MODEL?.trim() ?? "";
+  const genericApiKey = env.LLM_API_KEY?.trim() ?? "";
+  const providerApiKey = format === "chat-completions"
+    ? env.DEEPSEEK_API_KEY?.trim() ?? ""
+    : env.OPENAI_API_KEY?.trim() ?? "";
+  const apiKey = genericApiKey || providerApiKey;
+  const apiKeySource = genericApiKey
+    ? "LLM_API_KEY"
+    : format === "chat-completions"
+      ? "DEEPSEEK_API_KEY"
+      : "OPENAI_API_KEY";
 
   if (!apiKey) {
-    return { ok: false, message: "OPENAI_API_KEY が未設定です。.env.local を確認してください。" };
+    return {
+      ok: false,
+      status: "api-not-configured",
+      message: `${apiKeySource} が未設定です。サーバー側環境変数を確認してください。`,
+    };
   }
 
   if (!model) {
-    return { ok: false, message: "OPENAI_MODEL が未設定です。.env.local を確認してください。" };
+    return {
+      ok: false,
+      status: "api-not-configured",
+      message: "OPENAI_MODEL が未設定です。サーバー側環境変数を確認してください。",
+    };
   }
 
-  return { ok: true, apiKey, model };
+  return {
+    ok: true,
+    apiKey,
+    apiKeySource,
+    model,
+    baseUrl,
+    format,
+    endpointUrl: buildEndpointUrl(baseUrl, format),
+  };
 }
 
-function extractOutputText(value: unknown): string {
+export function extractResponsesOutputText(value: unknown): string {
   if (!value || typeof value !== "object") {
     return "";
   }
@@ -69,7 +146,32 @@ function extractOutputText(value: unknown): string {
   return texts.join("\n").trim();
 }
 
-function createOpenAiRequestBody(model: string, type: LlmOutputType, context: LlmStockResearchContext) {
+export function extractChatCompletionsOutputText(value: unknown): string {
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+
+  const response = value as Record<string, unknown>;
+  const choices = Array.isArray(response.choices) ? response.choices : [];
+  const firstChoice = choices[0];
+  if (!firstChoice || typeof firstChoice !== "object") {
+    return "";
+  }
+
+  const message = (firstChoice as Record<string, unknown>).message;
+  if (!message || typeof message !== "object") {
+    return "";
+  }
+
+  const content = (message as Record<string, unknown>).content;
+  if (typeof content === "string") {
+    return content.trim();
+  }
+
+  return "";
+}
+
+export function createOpenAiResponsesRequestBody(model: string, type: LlmOutputType, context: LlmStockResearchContext) {
   return {
     model,
     input: [
@@ -96,13 +198,43 @@ function createOpenAiRequestBody(model: string, type: LlmOutputType, context: Ll
   };
 }
 
+export function createOpenAiChatCompletionsRequestBody(model: string, type: LlmOutputType, context: LlmStockResearchContext) {
+  return {
+    model,
+    messages: [
+      {
+        role: "system",
+        content: buildLlmSystemPrompt(type),
+      },
+      {
+        role: "user",
+        content: buildLlmUserPrompt(context),
+      },
+    ],
+    temperature: 0.2,
+    max_tokens: 1400,
+  };
+}
+
+function createRequestBody(config: OpenAiLlmConfig, type: LlmOutputType, context: LlmStockResearchContext) {
+  return config.format === "chat-completions"
+    ? createOpenAiChatCompletionsRequestBody(config.model, type, context)
+    : createOpenAiResponsesRequestBody(config.model, type, context);
+}
+
+function extractOutputText(config: OpenAiLlmConfig, value: unknown): string {
+  return config.format === "chat-completions"
+    ? extractChatCompletionsOutputText(value)
+    : extractResponsesOutputText(value);
+}
+
 export const OpenAiLlmAdapter = {
   async generate(context: LlmStockResearchContext, type: LlmOutputType, env: OpenAiEnv = process.env): Promise<OpenAiLlmGenerateResult> {
     const config = getOpenAiLlmConfig(env);
     if (!config.ok) {
       return {
         ok: false,
-        status: "api-not-configured",
+        status: config.status,
         message: config.message,
       };
     }
@@ -117,13 +249,13 @@ export const OpenAiLlmAdapter = {
 
     let response: Response;
     try {
-      response = await fetch(OPENAI_RESPONSES_URL, {
+      response = await fetch(config.endpointUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${config.apiKey}`,
         },
-        body: JSON.stringify(createOpenAiRequestBody(config.model, type, context)),
+        body: JSON.stringify(createRequestBody(config, type, context)),
       });
     } catch {
       return {
@@ -137,6 +269,22 @@ export const OpenAiLlmAdapter = {
     try {
       json = await response.json();
     } catch {
+      if (response.status === 429) {
+        return {
+          ok: false,
+          status: "rate-limited",
+          message: "LLM APIのレート制限に達しました。時間をおいて再試行してください。",
+        };
+      }
+
+      if (!response.ok) {
+        return {
+          ok: false,
+          status: "api-error",
+          message: "LLM APIでエラーが発生しました。",
+        };
+      }
+
       return {
         ok: false,
         status: "invalid-format",
@@ -156,7 +304,7 @@ export const OpenAiLlmAdapter = {
       };
     }
 
-    const content = extractOutputText(json);
+    const content = extractOutputText(config, json);
     if (!content) {
       return {
         ok: false,
