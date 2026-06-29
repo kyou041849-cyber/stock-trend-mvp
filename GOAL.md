@@ -70,7 +70,7 @@ G011: プロバイダ設定のUI表示改善（実効LLM設定の非秘密表示
 | G008 | accepted | manager | codex-verifiable | G007 merged to main | none | テクニカル指標（RSI）とシグナル拡張 | local validation and PR #3 CI succeeded; main merge remains human | [goals/G008_INDICATORS_SIGNALS.md](goals/G008_INDICATORS_SIGNALS.md) |
 | G009 | accepted | manager | codex-verifiable | G008 merged to main | none | LLMプロバイダ可変化（OpenAI互換 Chat Completions対応） | local validation, PR #4, GitHub Actions CI, and main merge succeeded; live DeepSeek smoke remains manual | [goals/G009_LLM_PROVIDER_CONFIG.md](goals/G009_LLM_PROVIDER_CONFIG.md) |
 | G010 | accepted | manager | codex-verifiable | G009 merged to main | none | RSI/SMAクロスをトレンド強さスコアへ加点 | local validation, PR #5, and GitHub Actions CI succeeded; main merge remains human | [goals/G010_INDICATOR_SCORING.md](goals/G010_INDICATOR_SCORING.md) |
-| G011 | in-progress | manager | codex-verifiable | G010 merged to main | none | プロバイダ設定のUI表示改善（実効LLM設定の非秘密表示） | non-secret config endpoint, SettingsView display, tests, and local validation completed; PR and CI pending | [goals/G011_PROVIDER_SETTINGS_UI.md](goals/G011_PROVIDER_SETTINGS_UI.md) |
+| G011 | accepted | manager | codex-verifiable | G010 merged to main | none | プロバイダ設定のUI表示改善（実効LLM設定の非秘密表示） | local validation, PR #6, and GitHub Actions CI succeeded; main merge remains human | [goals/G011_PROVIDER_SETTINGS_UI.md](goals/G011_PROVIDER_SETTINGS_UI.md) |
 
 ## Human-Needed Queue / Checkpoints
 
@@ -532,7 +532,7 @@ PR / CI:
 
 ## G011 Provider Settings UI Update
 
-Status: in-progress, PR pending
+Status: completed
 
 Outcome target: 実LLMのサーバー側実効設定を、APIキー値を一切返さずに設定画面で確認できるようにする。
 
@@ -542,9 +542,16 @@ Implementation:
 - Add SettingsView read-only summary for provider format, base URL, model, key configured status, and key source name.
 - Add tests that assert key values are not included in public config JSON.
 - Local `pnpm run typecheck`, `pnpm run test`, `pnpm run build`, and `pnpm run test:e2e -- --reporter=line` succeeded.
+- PR #6 and GitHub Actions CI succeeded.
 
 Goal map note:
 
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
-| G011 | in-progress | manager | codex-verifiable | G010 merged to main | プロバイダ設定のUI表示改善 | local validation succeeded; PR and CI pending |
+| G011 | accepted | manager | codex-verifiable | G010 merged to main | プロバイダ設定のUI表示改善 | local validation, PR #6, and CI run `28410123188` succeeded; main merge remains human |
+
+PR / CI:
+
+- PR: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/6`
+- CI run: `28410123188`
+- CI conclusion: `success`
