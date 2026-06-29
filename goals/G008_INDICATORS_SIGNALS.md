@@ -2,7 +2,7 @@
 
 ## Status
 
-implemented, PR pending
+completed
 
 ## Objective
 
@@ -58,6 +58,14 @@ Local validation:
 - `pnpm run build`: success
 - `pnpm run test:e2e -- --reporter=line`: success, 3 passed
 - secret scan: no real API key found; hits are env var names, docs, test fake values, server-side adapters, and `risk-` / `task-` false positives
+
+Branch / PR:
+
+- branch: `codex/g008-indicators-signals`
+- implementation commit: `2c9120e feat: add RSI indicator and SMA-cross signals with reference tests`
+- PR: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/3`
+- CI run: `28361803492`
+- CI conclusion: `success`
 
 ## Safety
 

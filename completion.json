@@ -21,6 +21,6 @@
     "folder":  "C:\\Users\\kyou0\\Documents\\日常の困りごと\\stock-trend-mvp",
     "parent_request_id":  "",
     "continuation_policy":  "external_daily_issue_project",
-    "verification":  "README.md, package.json, src, scripts の存在を確認。G006で株価/業績APIの実取得をサーバー側Route Handler経由へ統一。G007で日本株/米国株のティッカー・地域・通貨正規化とfixture/stub検証を追加。G008でRSI(14)とSMA25/75クロス参考シグナルを追加し、typecheck/test/build/E2Eで確認した。",
+    "verification":  "README.md, package.json, src, scripts の存在を確認。G006で株価/業績APIの実取得をサーバー側Route Handler経由へ統一。G007で日本株/米国株のティッカー・地域・通貨正規化とfixture/stub検証を追加。G008でRSI(14)とSMA25/75クロス参考シグナルを追加し、typecheck/test/build/E2E、PR #3 CI successで確認した。",
     "risks":  "表示スコアとRSI/SMAクロスは機械的集計であり投資判断ではない。node_modules や .next は index 対象外。実APIキーは .env.local のみで扱い、ブラウザ/localStorageには保存しない。RSI閾値、SMA window、スコア加点有無は運用後に別Goalで調整可能。"
 }

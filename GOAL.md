@@ -67,7 +67,7 @@ G008: テクニカル指標（RSI）とシグナル拡張。
 | G002 | human-needed | manager | human-decision | none | none | GitHubリモート既存履歴の確認と安全な統合方針決定 | remote main was inspected and judged unrelated to stock-trend-mvp; user decision required before any merge/push | [goals/G002_REMOTE_HISTORY.md](goals/G002_REMOTE_HISTORY.md) |
 | G006 | accepted | manager | codex-verifiable | none | none | 株価/業績APIをサーバー側Route Handler経由に統一 | server routes, client adapter proxying, settings safety copy, tests, docs, E2E, safety scan, PR, and CI completed | [goals/G006_SERVER_SIDE_MARKET_API.md](goals/G006_SERVER_SIDE_MARKET_API.md) |
 | G007 | accepted | manager | codex-verifiable | G006 merged to main | none | 実株価データ接続（日本株 + 米国株） | PR #2 opened; local validation and PR CI succeeded; live provider/base URL/key confirmation remains manual | [goals/G007_REALDATA_JP_US.md](goals/G007_REALDATA_JP_US.md) |
-| G008 | in-progress | manager | codex-verifiable | G007 merged to main | none | テクニカル指標（RSI）とシグナル拡張 | local implementation and validation completed; PR and CI pending | [goals/G008_INDICATORS_SIGNALS.md](goals/G008_INDICATORS_SIGNALS.md) |
+| G008 | accepted | manager | codex-verifiable | G007 merged to main | none | テクニカル指標（RSI）とシグナル拡張 | local validation and PR #3 CI succeeded; main merge remains human | [goals/G008_INDICATORS_SIGNALS.md](goals/G008_INDICATORS_SIGNALS.md) |
 
 ## Human-Needed Queue / Checkpoints
 
@@ -414,7 +414,7 @@ Goal map note:
 
 ## G008 Technical Indicators and Signal Extension Update
 
-Status: implemented, PR pending
+Status: completed
 
 Outcome: RSI(14) と SMA25/75クロス判定を追加し、既存のトレンドシグナル表示へ機械的な参考シグナルとして統合。
 
@@ -439,8 +439,14 @@ Validation:
 - `pnpm run test:e2e -- --reporter=line`: success, 3 passed
 - secret scan: no real API key found; hits are env var names, docs, test fake values, server-side adapters, and `risk-` / `task-` false positives
 
+PR / CI:
+
+- PR: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/3`
+- CI run: `28361803492`
+- CI conclusion: `success`
+
 Goal map note:
 
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
-| G008 | in-progress | manager | codex-verifiable | G007 merged to main | テクニカル指標（RSI）とシグナル拡張 | local implementation and validation succeeded; PR and CI pending |
+| G008 | accepted | manager | codex-verifiable | G007 merged to main | テクニカル指標（RSI）とシグナル拡張 | local validation and PR #3 CI succeeded; main merge remains human |
