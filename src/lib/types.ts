@@ -448,6 +448,10 @@ export type TrendMetrics = {
   ma25: number | null;
   ma75: number | null;
   ma200: number | null;
+  rsi14: number | null;
+  smaCrossState: "golden" | "dead" | "none";
+  smaCrossShort: number | null;
+  smaCrossLong: number | null;
   closeSlope20: number | null;
   volumeAverage20: number | null;
   drawdownFrom52WeekHighPercent: number | null;

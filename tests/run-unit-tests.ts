@@ -115,7 +115,12 @@ import {
   upsertLlmSendSettingsInStore,
 } from "../src/lib/llmSendSettings";
 import { mergeNewsItems } from "../src/lib/newsDeduplication";
-import { calculateTrendAnalysis } from "../src/lib/stock-math";
+import {
+  calculateMovingAverage,
+  calculateRsi,
+  calculateTrendAnalysis,
+  detectSmaCross,
+} from "../src/lib/stock-math";
 import { generateMockLlmAnalysis, generateRealLlmAnalysis } from "../src/services/llmService";
 import { updateStockPricesFromApi } from "../src/services/stockPriceUpdateService";
 import type { EarningsCalendarItem, LlmOutputType, MarketRegion, NewsItem, PriceRow, StockProfile } from "../src/lib/types";
@@ -134,6 +139,19 @@ function makePrices(count: number): PriceRow[] {
       updatedAt: "2026-02-01T00:00:00.000Z",
     };
   });
+}
+
+function makePricesFromCloses(closes: number[]): PriceRow[] {
+  return closes.map((close, index) => ({
+    date: `2026-indicator-${String(index + 1).padStart(4, "0")}`,
+    open: close,
+    high: close + 1,
+    low: close - 1,
+    close,
+    volume: 1_000_000 + index,
+    source: manualDataSource("2026-02-01T00:00:00.000Z"),
+    updatedAt: "2026-02-01T00:00:00.000Z",
+  }));
 }
 
 function makeNews(index: number, stock: StockProfile): NewsItem {
@@ -442,6 +460,65 @@ async function run(): Promise<void> {
   const trend = calculateTrendAnalysis(prices);
   assert.equal(trend.score >= 0 && trend.score <= 100, true);
   assert.notEqual(trend.latest, null);
+
+  assert.deepEqual(calculateMovingAverage(makePricesFromCloses([1, 2, 3, 4]), 3), [null, null, 2, 3]);
+
+  const rsiReferencePrices = makePricesFromCloses([
+    44.34,
+    44.09,
+    44.15,
+    43.61,
+    44.33,
+    44.83,
+    45.1,
+    45.42,
+    45.84,
+    46.08,
+    45.89,
+    46.03,
+    45.61,
+    46.28,
+    46.28,
+    46,
+    46.03,
+    46.41,
+    46.22,
+    45.64,
+    46.21,
+  ]);
+  assert.deepEqual(calculateRsi(rsiReferencePrices).slice(0, 14), Array.from({ length: 14 }, () => null));
+  assert.deepEqual(calculateRsi(rsiReferencePrices).slice(14, 21), [70.46, 66.25, 66.48, 69.35, 66.29, 57.92, 62.88]);
+  assert.deepEqual(calculateRsi(makePricesFromCloses([100, 101, 102])).every((value) => value === null), true);
+  assert.equal(calculateRsi(makePricesFromCloses(Array.from({ length: 20 }, () => 100))).at(-1), 50);
+
+  assert.equal(detectSmaCross(makePricesFromCloses([10, 10, 10, 8, 600]), 2, 3).state, "golden");
+  assert.equal(detectSmaCross(makePricesFromCloses([10, 10, 10, 12, 0]), 2, 3).state, "dead");
+  assert.equal(detectSmaCross(makePricesFromCloses([10, 11, 12, 13, 14]), 2, 3).state, "none");
+
+  const goldenCrossTrend = calculateTrendAnalysis(makePricesFromCloses([
+    ...Array.from({ length: 50 }, () => 100),
+    ...Array.from({ length: 25 }, () => 80),
+    600,
+  ]));
+  assert.equal(goldenCrossTrend.signals.find((signal) => signal.key === "sma25_75GoldenCross")?.passed, true);
+  assert.equal(goldenCrossTrend.score >= 0 && goldenCrossTrend.score <= 100, true);
+
+  const deadCrossTrend = calculateTrendAnalysis(makePricesFromCloses([
+    ...Array.from({ length: 50 }, () => 100),
+    ...Array.from({ length: 25 }, () => 101),
+    0,
+  ]));
+  assert.equal(deadCrossTrend.signals.find((signal) => signal.key === "sma25_75DeadCross")?.passed, true);
+  assert.equal(deadCrossTrend.score >= 0 && deadCrossTrend.score <= 100, true);
+
+  const rsiHighTrend = calculateTrendAnalysis(makePricesFromCloses(Array.from({ length: 30 }, (_, index) => 100 + index)));
+  assert.equal(rsiHighTrend.metrics.rsi14, 100);
+  assert.equal(rsiHighTrend.signals.find((signal) => signal.key === "rsi14Above70")?.passed, true);
+  assert.equal(rsiHighTrend.signals.find((signal) => signal.key === "rsi14Below30")?.passed, false);
+  const rsiLowTrend = calculateTrendAnalysis(makePricesFromCloses(Array.from({ length: 30 }, (_, index) => 100 - index)));
+  assert.equal(rsiLowTrend.metrics.rsi14, 0);
+  assert.equal(rsiLowTrend.signals.find((signal) => signal.key === "rsi14Below30")?.passed, true);
+  assert.equal(calculateTrendAnalysis(makePricesFromCloses([100, 101, 102, 103, 104])).scoreLabel, "データ不足");
 
   const stock = makeStockFixture();
   const fundamentals = calculateFundamentalAnalysis(stock.earnings, trend.score);
