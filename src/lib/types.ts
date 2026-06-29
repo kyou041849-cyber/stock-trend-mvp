@@ -31,6 +31,8 @@ export type PriceRow = {
   low: number;
   close: number;
   volume: number;
+  marketRegion?: MarketRegion;
+  currency?: CurrencyCode;
   source?: DataSourceInfo;
   updatedAt?: string;
 };

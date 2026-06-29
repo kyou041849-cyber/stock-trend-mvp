@@ -19,6 +19,38 @@ export function inferMarketRegion(market: string, ticker: string): MarketRegion 
   return "OTHER";
 }
 
+export function isMarketRegion(value: unknown): value is MarketRegion {
+  return value === "JP" || value === "US" || value === "OTHER";
+}
+
+export function resolveMarketRegion(input: {
+  ticker: string;
+  market?: string;
+  region?: unknown;
+}): MarketRegion {
+  if (isMarketRegion(input.region)) {
+    return input.region;
+  }
+
+  return inferMarketRegion(input.market ?? "", input.ticker);
+}
+
+export function normalizeTickerForMarket(ticker: string, region: MarketRegion): string {
+  const normalized = normalizeTicker(ticker);
+
+  if (region === "JP" && /^\d{4}$/.test(normalized)) {
+    return `${normalized}.T`;
+  }
+
+  return normalized;
+}
+
+export function currencyForMarketRegion(region: MarketRegion): CurrencyCode {
+  if (region === "JP") return "JPY";
+  if (region === "US") return "USD";
+  return "UNKNOWN";
+}
+
 export function normalizeMarket(market: string, ticker: string): string {
   const trimmed = market.trim();
   if (trimmed) {

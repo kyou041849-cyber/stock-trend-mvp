@@ -1,7 +1,7 @@
-import { mockApiDataSource } from "@/lib/dataSource";
-import { formatStockPricePeriod } from "@/lib/updateHistory";
-import type { StockPriceFetchPeriod } from "@/lib/types";
-import type { StockPriceApiFetchResult, StockPriceApiRawRow } from "@/types/api";
+import { mockApiDataSource } from "../lib/dataSource";
+import { formatStockPricePeriod } from "../lib/updateHistory";
+import type { StockPriceFetchPeriod } from "../lib/types";
+import type { StockPriceApiFetchResult, StockPriceApiRawRow } from "../types/api";
 
 const PERIOD_TRADING_DAY_COUNTS: Record<StockPriceFetchPeriod, number> = {
   "1m": 34,

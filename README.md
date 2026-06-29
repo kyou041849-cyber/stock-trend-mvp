@@ -148,6 +148,16 @@ FUNDAMENTAL_API_BASE_URL=
 
 設定画面ではAPIプロバイダ名やMockモードを管理できますが、APIキーは入力・保存しません。株価API・業績APIの実接続は、ブラウザから直接外部APIへfetchせず、`/api/stock-prices` と `/api/fundamentals` のサーバー側Route Handlerを通します。β版ではMock APIでの動作確認を優先してください。
 
+株価APIは日本株・米国株の地域情報をサーバー側Routeへ渡します。日本株は `7203` のような4桁コードを `7203.T` に正規化し、地域に応じて `JPY` / `USD` を株価データへ付与します。外部APIキーはヘッダーで扱い、URLクエリやlocalStorageには保存しません。
+
+実株価APIの手動疎通を行う場合は、Next.jsサーバーを起動し、サーバー側の `.env.local` に株価API設定を入れたうえで次を実行します。このスクリプトはCIでは実行しません。
+
+```powershell
+node scripts/live-stock-smoke.mjs
+```
+
+`STOCK_PRICE_API_BASE_URL` は、APIキーをURLに含めず、サーバー側ヘッダー認証で呼べるエンドポイントを指定してください。実プロバイダごとのURL仕様は運用時に確認してください。
+
 ## β版タグ
 
 β版開始時点のコードには `beta-0.1.0` タグを付けています。
@@ -173,6 +183,7 @@ localStorageに保存された銘柄データ、CSV履歴、AI分析履歴はGit
 ## 未実装・制限
 
 - プロバイダ別の実株価API・実業績APIレスポンス変換の拡充
+- 実株価APIプロバイダごとのライブ疎通確認
 - ユーザー認証
 - サーバーDB保存
 - 複数端末同期

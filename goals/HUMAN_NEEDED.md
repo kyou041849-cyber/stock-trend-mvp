@@ -37,4 +37,5 @@
 ## Later / Deferred
 
 - 実株価API・実業績APIの本格接続は別Goalで扱う。
+- G007の実株価APIライブ疎通では、人間がプロバイダ、base URL、APIキーを `.env.local` に設定して `node scripts/live-stock-smoke.mjs` を実行する。
 - localStorageバックアップの世代管理や履歴整理は別Goalで扱う。

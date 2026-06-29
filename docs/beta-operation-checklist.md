@@ -63,10 +63,14 @@
 
 - `.env.local` に `STOCK_PRICE_API_KEY` と `STOCK_PRICE_API_BASE_URL` を設定した
 - `.env.local` に `FUNDAMENTAL_API_KEY` と `FUNDAMENTAL_API_BASE_URL` を設定した
+- `STOCK_PRICE_API_BASE_URL` にAPIキーを含めていない
+- 株価APIの実取得対象は日本株なら `.T` 付き、米国株なら通常ティッカーで取得できるか確認した
+- プロバイダがヘッダー認証に対応しているか、またはサーバー側で安全に扱える方式か確認した
 - APIキーを設定画面、localStorage、CSV、メモ、スクリーンショットに含めていない
 - 設定画面のAPIキー欄が「サーバー側環境変数で設定」になっている
 - 実取得は `/api/stock-prices` または `/api/fundamentals` のサーバー側Route Handler経由で行われる
 - 自動テストとE2Eでは実株価API・実業績APIを呼ばない
+- 実株価APIの手動疎通は必要に応じて `node scripts/live-stock-smoke.mjs` で確認する
 - 環境変数未設定時は、画面が落ちずに未設定メッセージを表示する
 
 ## localStorageバックアップタイミング
