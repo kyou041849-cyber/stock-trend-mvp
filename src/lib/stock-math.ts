@@ -4,8 +4,25 @@ const TRADING_DAYS_52_WEEKS = 252;
 export const RSI_PERIOD = 14;
 export const RSI_UPPER_THRESHOLD = 70;
 export const RSI_LOWER_THRESHOLD = 30;
+export const RSI_MOMENTUM_THRESHOLD = 50;
 export const SMA_CROSS_SHORT_WINDOW = 25;
 export const SMA_CROSS_LONG_WINDOW = 75;
+
+const TREND_SIGNAL_POINTS = {
+  closeAboveMa25: 8,
+  closeAboveMa75: 8,
+  closeAboveMa200: 18,
+  ma25AboveMa75: 13,
+  ma75AboveMa200: 13,
+  risingClose20: 15,
+  volumeAboveAverage20: 10,
+  within20PercentFrom52WeekHigh: 5,
+  rsi14AtOrAbove50: 5,
+  rsi14Above70: 0,
+  rsi14Below30: 0,
+  sma25_75GoldenCross: 5,
+  sma25_75DeadCross: 0,
+} as const satisfies Record<string, number>;
 
 export type SmaCrossState = "golden" | "dead" | "none";
 
@@ -288,6 +305,8 @@ export function calculateTrendAnalysis(rows: PriceRow[]): TrendAnalysis {
     metrics.rsi14 === null ? null : metrics.rsi14 > RSI_UPPER_THRESHOLD;
   const rsiBelowLowerThreshold =
     metrics.rsi14 === null ? null : metrics.rsi14 < RSI_LOWER_THRESHOLD;
+  const rsiAtOrAboveMomentumThreshold =
+    metrics.rsi14 === null ? null : metrics.rsi14 >= RSI_MOMENTUM_THRESHOLD;
   const smaCrossKnown =
     metrics.smaCrossShort !== null && metrics.smaCrossLong !== null;
 
@@ -296,73 +315,79 @@ export function calculateTrendAnalysis(rows: PriceRow[]): TrendAnalysis {
       key: "closeAboveMa25",
       label: "終値が25日移動平均線より上",
       passed: compareGreater(metrics.latestClose, metrics.ma25),
-      points: 10,
+      points: TREND_SIGNAL_POINTS.closeAboveMa25,
     },
     {
       key: "closeAboveMa75",
       label: "終値が75日移動平均線より上",
       passed: compareGreater(metrics.latestClose, metrics.ma75),
-      points: 10,
+      points: TREND_SIGNAL_POINTS.closeAboveMa75,
     },
     {
       key: "closeAboveMa200",
       label: "終値が200日移動平均線より上",
       passed: compareGreater(metrics.latestClose, metrics.ma200),
-      points: 20,
+      points: TREND_SIGNAL_POINTS.closeAboveMa200,
     },
     {
       key: "ma25AboveMa75",
       label: "25日線が75日線より上",
       passed: compareGreater(metrics.ma25, metrics.ma75),
-      points: 15,
+      points: TREND_SIGNAL_POINTS.ma25AboveMa75,
     },
     {
       key: "ma75AboveMa200",
       label: "75日線が200日線より上",
       passed: compareGreater(metrics.ma75, metrics.ma200),
-      points: 15,
+      points: TREND_SIGNAL_POINTS.ma75AboveMa200,
     },
     {
       key: "risingClose20",
       label: "直近20営業日の終値が上昇傾向",
       passed: risingClose20,
-      points: 15,
+      points: TREND_SIGNAL_POINTS.risingClose20,
     },
     {
       key: "volumeAboveAverage20",
       label: "出来高が直近20営業日平均より増加",
       passed: volumeAboveAverage20,
-      points: 10,
+      points: TREND_SIGNAL_POINTS.volumeAboveAverage20,
     },
     {
       key: "within20PercentFrom52WeekHigh",
       label: "52週高値からの下落率が20%以内",
       passed: within20PercentFrom52WeekHigh,
-      points: 5,
+      points: TREND_SIGNAL_POINTS.within20PercentFrom52WeekHigh,
+    },
+    {
+      key: "rsi14AtOrAbove50",
+      label: `RSI(${RSI_PERIOD})が${RSI_MOMENTUM_THRESHOLD}以上`,
+      passed: rsiAtOrAboveMomentumThreshold,
+      points: TREND_SIGNAL_POINTS.rsi14AtOrAbove50,
     },
     {
       key: "rsi14Above70",
       label: `RSI(${RSI_PERIOD})が${RSI_UPPER_THRESHOLD}超`,
       passed: rsiAboveUpperThreshold,
-      points: 0,
+      points: TREND_SIGNAL_POINTS.rsi14Above70,
     },
     {
       key: "rsi14Below30",
       label: `RSI(${RSI_PERIOD})が${RSI_LOWER_THRESHOLD}未満`,
       passed: rsiBelowLowerThreshold,
-      points: 0,
+      points: TREND_SIGNAL_POINTS.rsi14Below30,
     },
     {
       key: "sma25_75GoldenCross",
       label: `${SMA_CROSS_SHORT_WINDOW}日線と${SMA_CROSS_LONG_WINDOW}日線のゴールデンクロス発生`,
       passed: smaCrossKnown ? metrics.smaCrossState === "golden" : null,
-      points: 0,
+      points: TREND_SIGNAL_POINTS.sma25_75GoldenCross,
     },
     {
       key: "sma25_75DeadCross",
       label: `${SMA_CROSS_SHORT_WINDOW}日線と${SMA_CROSS_LONG_WINDOW}日線のデッドクロス発生`,
       passed: smaCrossKnown ? metrics.smaCrossState === "dead" : null,
-      points: 0,
+      points: TREND_SIGNAL_POINTS.sma25_75DeadCross,
     },
   ];
 

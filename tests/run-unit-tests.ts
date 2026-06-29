@@ -160,6 +160,16 @@ function makePricesFromCloses(closes: number[]): PriceRow[] {
   }));
 }
 
+function findTrendSignal(analysis: ReturnType<typeof calculateTrendAnalysis>, key: string) {
+  const signal = analysis.signals.find((item) => item.key === key);
+  assert.ok(signal, `missing trend signal: ${key}`);
+  return signal;
+}
+
+function sumPassedTrendPoints(analysis: ReturnType<typeof calculateTrendAnalysis>): number {
+  return analysis.signals.reduce((sum, signal) => sum + (signal.passed ? signal.points : 0), 0);
+}
+
 function makeNews(index: number, stock: StockProfile): NewsItem {
   return {
     id: `news-${index}`,
@@ -465,6 +475,7 @@ async function run(): Promise<void> {
   const prices = makePrices(30);
   const trend = calculateTrendAnalysis(prices);
   assert.equal(trend.score >= 0 && trend.score <= 100, true);
+  assert.equal(trend.score, 43);
   assert.notEqual(trend.latest, null);
 
   assert.deepEqual(calculateMovingAverage(makePricesFromCloses([1, 2, 3, 4]), 3), [null, null, 2, 3]);
@@ -506,7 +517,11 @@ async function run(): Promise<void> {
     ...Array.from({ length: 25 }, () => 80),
     600,
   ]));
-  assert.equal(goldenCrossTrend.signals.find((signal) => signal.key === "sma25_75GoldenCross")?.passed, true);
+  const noCrossTrend = calculateTrendAnalysis(makePricesFromCloses(Array.from({ length: 76 }, (_, index) => 100 + index)));
+  assert.equal(findTrendSignal(goldenCrossTrend, "sma25_75GoldenCross").passed, true);
+  assert.equal(findTrendSignal(goldenCrossTrend, "sma25_75GoldenCross").points, 5);
+  assert.equal(findTrendSignal(noCrossTrend, "sma25_75GoldenCross").passed, false);
+  assert.equal(goldenCrossTrend.score > noCrossTrend.score, true);
   assert.equal(goldenCrossTrend.score >= 0 && goldenCrossTrend.score <= 100, true);
 
   const deadCrossTrend = calculateTrendAnalysis(makePricesFromCloses([
@@ -514,16 +529,29 @@ async function run(): Promise<void> {
     ...Array.from({ length: 25 }, () => 101),
     0,
   ]));
-  assert.equal(deadCrossTrend.signals.find((signal) => signal.key === "sma25_75DeadCross")?.passed, true);
+  assert.equal(findTrendSignal(deadCrossTrend, "sma25_75DeadCross").passed, true);
+  assert.equal(findTrendSignal(deadCrossTrend, "sma25_75DeadCross").points, 0);
   assert.equal(deadCrossTrend.score >= 0 && deadCrossTrend.score <= 100, true);
+
+  const rsiMomentumTrend = calculateTrendAnalysis(rsiReferencePrices);
+  assert.equal(findTrendSignal(rsiMomentumTrend, "rsi14AtOrAbove50").passed, true);
+  assert.equal(findTrendSignal(rsiMomentumTrend, "rsi14AtOrAbove50").points, 5);
+  assert.equal(rsiMomentumTrend.score, sumPassedTrendPoints(rsiMomentumTrend));
 
   const rsiHighTrend = calculateTrendAnalysis(makePricesFromCloses(Array.from({ length: 30 }, (_, index) => 100 + index)));
   assert.equal(rsiHighTrend.metrics.rsi14, 100);
-  assert.equal(rsiHighTrend.signals.find((signal) => signal.key === "rsi14Above70")?.passed, true);
-  assert.equal(rsiHighTrend.signals.find((signal) => signal.key === "rsi14Below30")?.passed, false);
+  assert.equal(findTrendSignal(rsiHighTrend, "rsi14AtOrAbove50").passed, true);
+  assert.equal(findTrendSignal(rsiHighTrend, "rsi14AtOrAbove50").points, 5);
+  assert.equal(findTrendSignal(rsiHighTrend, "rsi14Above70").passed, true);
+  assert.equal(findTrendSignal(rsiHighTrend, "rsi14Above70").points, 0);
+  assert.equal(findTrendSignal(rsiHighTrend, "rsi14Below30").passed, false);
   const rsiLowTrend = calculateTrendAnalysis(makePricesFromCloses(Array.from({ length: 30 }, (_, index) => 100 - index)));
   assert.equal(rsiLowTrend.metrics.rsi14, 0);
-  assert.equal(rsiLowTrend.signals.find((signal) => signal.key === "rsi14Below30")?.passed, true);
+  assert.equal(findTrendSignal(rsiLowTrend, "rsi14AtOrAbove50").passed, false);
+  assert.equal(findTrendSignal(rsiLowTrend, "rsi14Below30").passed, true);
+  assert.equal(findTrendSignal(rsiLowTrend, "rsi14Below30").points, 0);
+  assert.equal(rsiLowTrend.score, sumPassedTrendPoints(rsiLowTrend));
+  assert.equal(trend.signals.reduce((sum, signal) => sum + signal.points, 0), 100);
   assert.equal(calculateTrendAnalysis(makePricesFromCloses([100, 101, 102, 103, 104])).scoreLabel, "データ不足");
 
   const stock = makeStockFixture();
