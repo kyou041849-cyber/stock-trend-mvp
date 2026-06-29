@@ -2,7 +2,7 @@
 
 ## Status
 
-implemented, PR pending
+completed
 
 ## Objective
 
@@ -41,6 +41,12 @@ Local validation:
 - `pnpm run build`: success
 - `pnpm run test:e2e -- --reporter=line`: success, 3 passed
 - secret scan: no real API key found; hits are env var names, docs, test fake values, server-side adapters, and `risk-` / `task-` false positives
+
+PR / CI:
+
+- PR: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/4`
+- CI run: `28365542131`
+- CI conclusion: `success`
 
 Unit coverage:
 
