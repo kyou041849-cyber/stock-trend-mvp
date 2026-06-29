@@ -1,6 +1,21 @@
 import type { ChartPoint, PriceRow, TrendAnalysis, TrendMetrics, TrendSignal } from "./types";
 
 const TRADING_DAYS_52_WEEKS = 252;
+export const RSI_PERIOD = 14;
+export const RSI_UPPER_THRESHOLD = 70;
+export const RSI_LOWER_THRESHOLD = 30;
+export const SMA_CROSS_SHORT_WINDOW = 25;
+export const SMA_CROSS_LONG_WINDOW = 75;
+
+export type SmaCrossState = "golden" | "dead" | "none";
+
+export type SmaCrossResult = {
+  state: SmaCrossState;
+  shortWindow: number;
+  longWindow: number;
+  shortLatest: number | null;
+  longLatest: number | null;
+};
 
 export function sortPriceRows(rows: PriceRow[]): PriceRow[] {
   return [...rows].sort((a, b) => a.date.localeCompare(b.date));
@@ -32,6 +47,127 @@ export function calculateMovingAverage(rows: PriceRow[], windowSize: number): Ar
 
     return roundTo(rollingSum / windowSize);
   });
+}
+
+function calculateRsiValue(averageGain: number, averageLoss: number): number {
+  if (averageGain === 0 && averageLoss === 0) {
+    return 50;
+  }
+
+  if (averageLoss === 0) {
+    return 100;
+  }
+
+  if (averageGain === 0) {
+    return 0;
+  }
+
+  return roundTo(100 - 100 / (1 + averageGain / averageLoss));
+}
+
+export function calculateRsi(rows: PriceRow[], period = RSI_PERIOD): Array<number | null> {
+  if (period <= 0) {
+    throw new Error("period must be greater than 0");
+  }
+
+  const sortedRows = sortPriceRows(rows);
+  const values: Array<number | null> = sortedRows.map(() => null);
+
+  if (sortedRows.length <= period) {
+    return values;
+  }
+
+  let gainSum = 0;
+  let lossSum = 0;
+
+  for (let index = 1; index <= period; index += 1) {
+    const change = sortedRows[index].close - sortedRows[index - 1].close;
+    gainSum += Math.max(change, 0);
+    lossSum += Math.max(-change, 0);
+  }
+
+  let averageGain = gainSum / period;
+  let averageLoss = lossSum / period;
+  values[period] = calculateRsiValue(averageGain, averageLoss);
+
+  for (let index = period + 1; index < sortedRows.length; index += 1) {
+    const change = sortedRows[index].close - sortedRows[index - 1].close;
+    const gain = Math.max(change, 0);
+    const loss = Math.max(-change, 0);
+    averageGain = (averageGain * (period - 1) + gain) / period;
+    averageLoss = (averageLoss * (period - 1) + loss) / period;
+    values[index] = calculateRsiValue(averageGain, averageLoss);
+  }
+
+  return values;
+}
+
+export function detectSmaCross(
+  rows: PriceRow[],
+  shortWindow = SMA_CROSS_SHORT_WINDOW,
+  longWindow = SMA_CROSS_LONG_WINDOW,
+): SmaCrossResult {
+  const sortedRows = sortPriceRows(rows);
+  const shortValues = calculateMovingAverage(sortedRows, shortWindow);
+  const longValues = calculateMovingAverage(sortedRows, longWindow);
+
+  let latestIndex = -1;
+  for (let index = sortedRows.length - 1; index >= 0; index -= 1) {
+    if (shortValues[index] !== null && longValues[index] !== null) {
+      latestIndex = index;
+      break;
+    }
+  }
+
+  if (latestIndex < 0) {
+    return {
+      state: "none",
+      shortWindow,
+      longWindow,
+      shortLatest: null,
+      longLatest: null,
+    };
+  }
+
+  const shortLatest = shortValues[latestIndex];
+  const longLatest = longValues[latestIndex];
+  let previousIndex = -1;
+  for (let index = latestIndex - 1; index >= 0; index -= 1) {
+    if (shortValues[index] !== null && longValues[index] !== null) {
+      previousIndex = index;
+      break;
+    }
+  }
+
+  if (shortLatest === null || longLatest === null || previousIndex < 0) {
+    return {
+      state: "none",
+      shortWindow,
+      longWindow,
+      shortLatest,
+      longLatest,
+    };
+  }
+
+  const previousShort = shortValues[previousIndex];
+  const previousLong = longValues[previousIndex];
+  let state: SmaCrossState = "none";
+
+  if (previousShort !== null && previousLong !== null) {
+    if (previousShort <= previousLong && shortLatest > longLatest) {
+      state = "golden";
+    } else if (previousShort >= previousLong && shortLatest < longLatest) {
+      state = "dead";
+    }
+  }
+
+  return {
+    state,
+    shortWindow,
+    longWindow,
+    shortLatest,
+    longLatest,
+  };
 }
 
 export function buildChartData(rows: PriceRow[]): ChartPoint[] {
@@ -100,6 +236,8 @@ function getLatestMetrics(chartData: ChartPoint[]): TrendMetrics {
   const latest = chartData.at(-1) ?? null;
   const trailing20 = chartData.slice(-20);
   const trailing52Weeks = chartData.slice(-TRADING_DAYS_52_WEEKS);
+  const rsi14 = calculateRsi(chartData, RSI_PERIOD).at(-1) ?? null;
+  const smaCross = detectSmaCross(chartData, SMA_CROSS_SHORT_WINDOW, SMA_CROSS_LONG_WINDOW);
   const volumeAverage20 = trailing20.length >= 20 ? average(trailing20.map((row) => row.volume)) : null;
   const closeSlope20 =
     trailing20.length >= 20 ? calculateLinearRegressionSlope(trailing20.map((row) => row.close)) : null;
@@ -114,6 +252,10 @@ function getLatestMetrics(chartData: ChartPoint[]): TrendMetrics {
     ma25: latest?.ma25 ?? null,
     ma75: latest?.ma75 ?? null,
     ma200: latest?.ma200 ?? null,
+    rsi14,
+    smaCrossState: smaCross.state,
+    smaCrossShort: smaCross.shortLatest,
+    smaCrossLong: smaCross.longLatest,
     closeSlope20,
     volumeAverage20,
     drawdownFrom52WeekHighPercent:
@@ -142,6 +284,12 @@ export function calculateTrendAnalysis(rows: PriceRow[]): TrendAnalysis {
     metrics.drawdownFrom52WeekHighPercent === null
       ? null
       : metrics.drawdownFrom52WeekHighPercent <= 20;
+  const rsiAboveUpperThreshold =
+    metrics.rsi14 === null ? null : metrics.rsi14 > RSI_UPPER_THRESHOLD;
+  const rsiBelowLowerThreshold =
+    metrics.rsi14 === null ? null : metrics.rsi14 < RSI_LOWER_THRESHOLD;
+  const smaCrossKnown =
+    metrics.smaCrossShort !== null && metrics.smaCrossLong !== null;
 
   const signals: TrendSignal[] = [
     {
@@ -192,6 +340,30 @@ export function calculateTrendAnalysis(rows: PriceRow[]): TrendAnalysis {
       passed: within20PercentFrom52WeekHigh,
       points: 5,
     },
+    {
+      key: "rsi14Above70",
+      label: `RSI(${RSI_PERIOD})が${RSI_UPPER_THRESHOLD}超`,
+      passed: rsiAboveUpperThreshold,
+      points: 0,
+    },
+    {
+      key: "rsi14Below30",
+      label: `RSI(${RSI_PERIOD})が${RSI_LOWER_THRESHOLD}未満`,
+      passed: rsiBelowLowerThreshold,
+      points: 0,
+    },
+    {
+      key: "sma25_75GoldenCross",
+      label: `${SMA_CROSS_SHORT_WINDOW}日線と${SMA_CROSS_LONG_WINDOW}日線のゴールデンクロス発生`,
+      passed: smaCrossKnown ? metrics.smaCrossState === "golden" : null,
+      points: 0,
+    },
+    {
+      key: "sma25_75DeadCross",
+      label: `${SMA_CROSS_SHORT_WINDOW}日線と${SMA_CROSS_LONG_WINDOW}日線のデッドクロス発生`,
+      passed: smaCrossKnown ? metrics.smaCrossState === "dead" : null,
+      points: 0,
+    },
   ];
 
   const score = Math.min(
@@ -203,7 +375,7 @@ export function calculateTrendAnalysis(rows: PriceRow[]): TrendAnalysis {
     chartData,
     latest,
     score,
-    scoreLabel: rows.length === 0 ? "データ不足" : getScoreLabel(score),
+    scoreLabel: rows.length < 25 ? "データ不足" : getScoreLabel(score),
     signals,
     metrics,
   };

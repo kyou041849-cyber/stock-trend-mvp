@@ -282,7 +282,7 @@ function SignalTable({ title, signals }: { title: string; signals: Array<TrendSi
                 <tr key={signal.key}>
                   <td className="px-4 py-3 font-semibold text-slate-700">{signal.label}</td>
                   <td className="px-4 py-3"><span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${status.className}`}><Icon aria-hidden className="h-3.5 w-3.5" />{status.label}</span></td>
-                  <td className="px-4 py-3 text-right font-bold text-ink">{signal.passed ? `+${signal.points}` : "0"}</td>
+                  <td className="px-4 py-3 text-right font-bold text-ink">{signal.points === 0 ? "参考" : signal.passed ? `+${signal.points}` : "0"}</td>
                 </tr>
               );
             })}
@@ -1234,7 +1234,10 @@ export function StockDetailView({
         <MetricTile label="PSR" value={formatNumber(metrics.latestPsr)} />
       </div>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <SignalTable title="トレンドスコア判定" signals={trendAnalysis.signals} />
         <SignalTable title="成長性スコア判定" signals={fundamentalAnalysis.growthSignals} />
+      </div>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <SignalTable title="財務安全性スコア判定" signals={fundamentalAnalysis.safetySignals} />
       </div>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">

@@ -47,4 +47,5 @@
 
 - 実株価API・実業績APIの本格接続は別Goalで扱う。
 - G007の実株価APIライブ疎通では、人間がプロバイダ、base URL、APIキーを `.env.local` に設定して `node scripts/live-stock-smoke.mjs` を実行する。
+- G008のRSI閾値、SMA window、トレンドスコア加点有無は運用後に別Goalで調整可能。初期値は RSI14 / 70 / 30、SMA25 / SMA75、参考シグナル0点。
 - localStorageバックアップの世代管理や履歴整理は別Goalで扱う。
