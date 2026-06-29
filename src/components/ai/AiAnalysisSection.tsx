@@ -320,7 +320,7 @@ export function AiAnalysisSection({
 
         {generationMode === "real" ? (
           <InfoAlert tone="info" className="mt-3">
-            実LLMを使うにはサーバー側の `.env.local` に `OPENAI_API_KEY` と `OPENAI_MODEL` を設定してください。APIキーは画面やlocalStorageには保存しません。
+            実LLMを使うにはサーバー側環境変数にAPIキーと `OPENAI_MODEL` を設定してください。OpenAI互換Chat Completionsでは `LLM_API_BASE_URL` と `LLM_API_FORMAT` も指定できます。APIキーは画面やlocalStorageには保存しません。
           </InfoAlert>
         ) : null}
 

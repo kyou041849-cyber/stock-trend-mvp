@@ -4,7 +4,13 @@ import { join } from "node:path";
 import { ApiFundamentalAdapter } from "../src/adapters/apiFundamentalAdapter";
 import { ApiStockPriceAdapter } from "../src/adapters/apiStockPriceAdapter";
 import { FORBIDDEN_MOCK_LLM_PHRASES } from "../src/adapters/mockLlmAdapter";
-import { OpenAiLlmAdapter, getOpenAiLlmConfig } from "../src/adapters/openAiLlmAdapter";
+import {
+  OpenAiLlmAdapter,
+  createOpenAiChatCompletionsRequestBody,
+  extractChatCompletionsOutputText,
+  extractResponsesOutputText,
+  getOpenAiLlmConfig,
+} from "../src/adapters/openAiLlmAdapter";
 import {
   alertToneClasses,
   badgeToneClasses,
@@ -1324,6 +1330,78 @@ async function run(): Promise<void> {
   assert.equal(getOpenAiLlmConfig({ OPENAI_API_KEY: "test-key" }).ok, false);
   assert.equal(containsForbiddenLlmPhrase("これは" + FORBIDDEN_MOCK_LLM_PHRASES[0] + "です"), true);
 
+  const responsesConfig = getOpenAiLlmConfig({
+    OPENAI_API_KEY: "openai-test-key",
+    OPENAI_MODEL: "test-model",
+  });
+  assert.equal(responsesConfig.ok, true);
+  if (!responsesConfig.ok) {
+    throw new Error("Responses config failed");
+  }
+  assert.equal(responsesConfig.format, "responses");
+  assert.equal(responsesConfig.baseUrl, "https://api.openai.com");
+  assert.equal(responsesConfig.endpointUrl, "https://api.openai.com/v1/responses");
+  assert.equal(responsesConfig.apiKeySource, "OPENAI_API_KEY");
+
+  const chatConfig = getOpenAiLlmConfig({
+    LLM_API_BASE_URL: "https://api.deepseek.com/",
+    LLM_API_FORMAT: "chat-completions",
+    DEEPSEEK_API_KEY: "deepseek-test-key",
+    OPENAI_MODEL: "deepseek-v4-flash",
+  });
+  assert.equal(chatConfig.ok, true);
+  if (!chatConfig.ok) {
+    throw new Error("Chat completions config failed");
+  }
+  assert.equal(chatConfig.format, "chat-completions");
+  assert.equal(chatConfig.baseUrl, "https://api.deepseek.com");
+  assert.equal(chatConfig.endpointUrl, "https://api.deepseek.com/chat/completions");
+  assert.equal(chatConfig.apiKeySource, "DEEPSEEK_API_KEY");
+
+  const genericKeyConfig = getOpenAiLlmConfig({
+    LLM_API_KEY: "generic-test-key",
+    LLM_API_FORMAT: "chat-completions",
+    DEEPSEEK_API_KEY: "deepseek-test-key",
+    OPENAI_MODEL: "deepseek-v4-flash",
+  });
+  assert.equal(genericKeyConfig.ok, true);
+  if (!genericKeyConfig.ok) {
+    throw new Error("Generic LLM key config failed");
+  }
+  assert.equal(genericKeyConfig.apiKeySource, "LLM_API_KEY");
+
+  const missingChatKeyConfig = getOpenAiLlmConfig({
+    LLM_API_FORMAT: "chat-completions",
+    OPENAI_MODEL: "deepseek-v4-flash",
+  });
+  assert.equal(missingChatKeyConfig.ok, false);
+  if (!missingChatKeyConfig.ok) {
+    assert.equal(missingChatKeyConfig.status, "api-not-configured");
+    assert.equal(missingChatKeyConfig.message.includes("DEEPSEEK_API_KEY"), true);
+  }
+
+  const invalidFormatConfig = getOpenAiLlmConfig({
+    LLM_API_FORMAT: "unknown",
+    LLM_API_KEY: "generic-test-key",
+    OPENAI_MODEL: "test-model",
+  });
+  assert.equal(invalidFormatConfig.ok, false);
+  if (!invalidFormatConfig.ok) {
+    assert.equal(invalidFormatConfig.status, "invalid-format");
+  }
+
+  assert.equal(extractResponsesOutputText({ output_text: " responses text " }), "responses text");
+  assert.equal(extractChatCompletionsOutputText({ choices: [{ message: { content: " chat text " } }] }), "chat text");
+  assert.equal(extractChatCompletionsOutputText({ choices: [] }), "");
+
+  const chatBody = createOpenAiChatCompletionsRequestBody("deepseek-v4-flash", "銘柄要約", generated.context);
+  assert.equal(chatBody.model, "deepseek-v4-flash");
+  assert.equal(chatBody.messages.length, 2);
+  assert.equal(chatBody.messages[0].role, "system");
+  assert.equal(chatBody.messages[1].role, "user");
+  assert.equal(chatBody.max_tokens, 1400);
+  assert.equal(JSON.stringify(chatBody).includes("deepseek-test-key"), false);
+
   const missingContextResult = await generateRealLlmAnalysis(stock.id, "銘柄要約", null);
   assert.equal(missingContextResult.ok, false);
 
@@ -1383,6 +1461,51 @@ async function run(): Promise<void> {
   }
   globalThis.fetch = originalFetchForOpenAiJson;
 
+  const originalFetchForChatCompletions = globalThis.fetch;
+  let chatRequestUrl = "";
+  let chatRequestBody = "";
+  globalThis.fetch = async (input, init) => {
+    chatRequestUrl = String(input);
+    chatRequestBody = typeof init?.body === "string" ? init.body : "";
+    return new Response(JSON.stringify({
+      choices: [
+        {
+          message: {
+            content: jsonReportText,
+          },
+        },
+      ],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  const chatAdapterResult = await OpenAiLlmAdapter.generate(generated.context, "銘柄要約", {
+    LLM_API_BASE_URL: "https://api.deepseek.com",
+    LLM_API_FORMAT: "chat-completions",
+    DEEPSEEK_API_KEY: "deepseek-test-key",
+    OPENAI_MODEL: "deepseek-v4-flash",
+  });
+  assert.equal(chatAdapterResult.ok, true);
+  if (chatAdapterResult.ok) {
+    assert.equal(chatAdapterResult.model, "deepseek-v4-flash");
+    assert.equal(chatAdapterResult.structuredReport?.title, "JSON銘柄要約");
+  }
+  assert.equal(chatRequestUrl, "https://api.deepseek.com/chat/completions");
+  assert.equal(chatRequestBody.includes("deepseek-test-key"), false);
+  assert.equal(JSON.parse(chatRequestBody).messages.length, 2);
+  globalThis.fetch = originalFetchForChatCompletions;
+
+  const originalFetchForEmptyChatCompletions = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ choices: [] }), { status: 200, headers: { "Content-Type": "application/json" } });
+  const emptyChatResult = await OpenAiLlmAdapter.generate(generated.context, "銘柄要約", {
+    LLM_API_FORMAT: "chat-completions",
+    LLM_API_KEY: "generic-test-key",
+    OPENAI_MODEL: "deepseek-v4-flash",
+  });
+  assert.equal(emptyChatResult.ok, false);
+  if (!emptyChatResult.ok) {
+    assert.equal(emptyChatResult.status, "invalid-format");
+  }
+  globalThis.fetch = originalFetchForEmptyChatCompletions;
+
   const originalFetchForOpenAi = globalThis.fetch;
   globalThis.fetch = async () => new Response(JSON.stringify({
     output_text: "これは" + FORBIDDEN_MOCK_LLM_PHRASES[1] + "という文です。",
@@ -1396,6 +1519,34 @@ async function run(): Promise<void> {
     assert.equal(forbiddenResult.status, "forbidden-phrase");
   }
   globalThis.fetch = originalFetchForOpenAi;
+
+  const originalFetchForForbiddenChat = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    choices: [{ message: { content: "これは" + FORBIDDEN_MOCK_LLM_PHRASES[1] + "という文です。" } }],
+  }), { status: 200, headers: { "Content-Type": "application/json" } });
+  const forbiddenChatResult = await OpenAiLlmAdapter.generate(generated.context, "銘柄要約", {
+    LLM_API_FORMAT: "chat-completions",
+    LLM_API_KEY: "generic-test-key",
+    OPENAI_MODEL: "deepseek-v4-flash",
+  });
+  assert.equal(forbiddenChatResult.ok, false);
+  if (!forbiddenChatResult.ok) {
+    assert.equal(forbiddenChatResult.status, "forbidden-phrase");
+  }
+  globalThis.fetch = originalFetchForForbiddenChat;
+
+  const originalFetchForRateLimit = globalThis.fetch;
+  globalThis.fetch = async () => new Response("rate limited", { status: 429 });
+  const rateLimitedResult = await OpenAiLlmAdapter.generate(generated.context, "銘柄要約", {
+    LLM_API_FORMAT: "chat-completions",
+    LLM_API_KEY: "generic-test-key",
+    OPENAI_MODEL: "deepseek-v4-flash",
+  });
+  assert.equal(rateLimitedResult.ok, false);
+  if (!rateLimitedResult.ok) {
+    assert.equal(rateLimitedResult.status, "rate-limited");
+  }
+  globalThis.fetch = originalFetchForRateLimit;
 
   console.log("unit tests passed");
 }
