@@ -153,6 +153,9 @@ test("main research flow stays usable without real LLM", async ({ page }) => {
   await expect(page.getByTestId("settings-view")).toBeVisible();
   await expect(page.getByTestId("api-key-safety-note")).toBeVisible();
   await expect(page.getByTestId("api-key-safety-note")).toContainText("localStorage");
+  await expect(page.getByTestId("llm-provider-config")).toBeVisible();
+  await expect(page.getByTestId("llm-provider-secret-note")).toContainText("APIキーの値は表示しません");
+  await expect(page.getByTestId("llm-provider-key-status")).toBeVisible();
 });
 
 test("mobile width smoke flow does not crash", async ({ page }) => {

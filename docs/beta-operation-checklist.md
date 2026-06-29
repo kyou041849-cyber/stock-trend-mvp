@@ -57,6 +57,7 @@
 - APIキーをlocalStorage、メモ、CSV、スクリーンショットに含めていない
 - OpenAI Responsesを使う場合は `OPENAI_API_KEY` と `OPENAI_MODEL` をサーバー側環境変数で設定した
 - DeepSeekなどOpenAI互換Chat Completionsを使う場合は `LLM_API_BASE_URL`、`LLM_API_FORMAT=chat-completions`、`OPENAI_MODEL` を設定し、キーはサーバープロセスの `DEEPSEEK_API_KEY` または `LLM_API_KEY` で渡した
+- 設定画面の「現在のLLMプロバイダ（サーバー側）」で形式、モデル、キー設定状況、キー源名を確認した。APIキー値は画面に出さない
 - 利用回数制限と入力サイズを確認した
 - 自動テストでは実LLM APIを呼ばない
 - エラー時は再試行前に入力サイズ、回数制限、環境変数を確認する

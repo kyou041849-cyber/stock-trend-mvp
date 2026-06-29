@@ -10,6 +10,7 @@ import {
   extractChatCompletionsOutputText,
   extractResponsesOutputText,
   getOpenAiLlmConfig,
+  getOpenAiLlmPublicConfig,
 } from "../src/adapters/openAiLlmAdapter";
 import {
   alertToneClasses,
@@ -1417,6 +1418,54 @@ async function run(): Promise<void> {
   if (!invalidFormatConfig.ok) {
     assert.equal(invalidFormatConfig.status, "invalid-format");
   }
+
+  const publicResponsesConfig = getOpenAiLlmPublicConfig({
+    OPENAI_API_KEY: "openai-public-config-test-secret",
+    OPENAI_MODEL: "test-model",
+  });
+  assert.equal(publicResponsesConfig.configured, true);
+  assert.equal(publicResponsesConfig.format, "responses");
+  assert.equal(publicResponsesConfig.baseUrl, "https://api.openai.com");
+  assert.equal(publicResponsesConfig.model, "test-model");
+  assert.equal(publicResponsesConfig.apiKeySource, "OPENAI_API_KEY");
+  assert.equal(publicResponsesConfig.apiKeyConfigured, true);
+  assert.equal(Object.prototype.hasOwnProperty.call(publicResponsesConfig, "apiKey"), false);
+  assert.equal(JSON.stringify(publicResponsesConfig).includes("openai-public-config-test-secret"), false);
+
+  const publicChatConfig = getOpenAiLlmPublicConfig({
+    LLM_API_BASE_URL: "https://api.deepseek.com/v1?token=chat-public-config-test-secret#fragment",
+    LLM_API_FORMAT: "chat-completions",
+    DEEPSEEK_API_KEY: "chat-public-config-test-secret",
+    OPENAI_MODEL: "deepseek-v4-flash",
+  });
+  assert.equal(publicChatConfig.configured, true);
+  assert.equal(publicChatConfig.format, "chat-completions");
+  assert.equal(publicChatConfig.baseUrl, "https://api.deepseek.com/v1");
+  assert.equal(publicChatConfig.model, "deepseek-v4-flash");
+  assert.equal(publicChatConfig.apiKeySource, "DEEPSEEK_API_KEY");
+  assert.equal(publicChatConfig.apiKeyConfigured, true);
+  assert.equal(JSON.stringify(publicChatConfig).includes("chat-public-config-test-secret"), false);
+  assert.equal(JSON.stringify(publicChatConfig).includes("token="), false);
+
+  const publicMissingKeyConfig = getOpenAiLlmPublicConfig({
+    LLM_API_FORMAT: "chat-completions",
+    OPENAI_MODEL: "deepseek-v4-flash",
+  });
+  assert.equal(publicMissingKeyConfig.configured, false);
+  assert.equal(publicMissingKeyConfig.status, "api-not-configured");
+  assert.equal(publicMissingKeyConfig.apiKeySource, "DEEPSEEK_API_KEY");
+  assert.equal(publicMissingKeyConfig.apiKeyConfigured, false);
+
+  const publicInvalidFormatConfig = getOpenAiLlmPublicConfig({
+    LLM_API_FORMAT: "unknown",
+    LLM_API_KEY: "generic-public-config-test-secret",
+    OPENAI_MODEL: "test-model",
+  });
+  assert.equal(publicInvalidFormatConfig.configured, false);
+  assert.equal(publicInvalidFormatConfig.status, "invalid-format");
+  assert.equal(publicInvalidFormatConfig.format, null);
+  assert.equal(publicInvalidFormatConfig.apiKeySource, "LLM_API_KEY");
+  assert.equal(JSON.stringify(publicInvalidFormatConfig).includes("generic-public-config-test-secret"), false);
 
   assert.equal(extractResponsesOutputText({ output_text: " responses text " }), "responses text");
   assert.equal(extractChatCompletionsOutputText({ choices: [{ message: { content: " chat text " } }] }), "chat text");

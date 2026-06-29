@@ -36,6 +36,17 @@ type OpenAiLlmConfigError = {
   status: "api-not-configured" | "invalid-format";
 };
 
+export type OpenAiLlmPublicConfig = {
+  configured: boolean;
+  format: LlmApiFormat | null;
+  baseUrl: string;
+  model: string;
+  apiKeySource: "LLM_API_KEY" | "OPENAI_API_KEY" | "DEEPSEEK_API_KEY" | null;
+  apiKeyConfigured: boolean;
+  status: "configured" | "api-not-configured" | "invalid-format";
+  message: string;
+};
+
 export type OpenAiLlmGenerateResult =
   | {
       ok: true;
@@ -49,8 +60,19 @@ export type OpenAiLlmGenerateResult =
       status: "api-not-configured" | "network-error" | "api-error" | "rate-limited" | "invalid-format" | "forbidden-phrase";
     };
 
+function stripUrlQueryAndHash(value: string): string {
+  try {
+    const parsed = new URL(value);
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.toString().replace(/\/+$/, "");
+  } catch {
+    return value.split("?")[0].split("#")[0].replace(/\/+$/, "");
+  }
+}
+
 function normalizeBaseUrl(baseUrl: string | undefined): string {
-  return (baseUrl?.trim() || DEFAULT_LLM_API_BASE_URL).replace(/\/+$/, "");
+  return stripUrlQueryAndHash(baseUrl?.trim() || DEFAULT_LLM_API_BASE_URL);
 }
 
 function normalizeFormat(format: string | undefined): LlmApiFormat | null {
@@ -64,6 +86,86 @@ function normalizeFormat(format: string | undefined): LlmApiFormat | null {
 
 function buildEndpointUrl(baseUrl: string, format: LlmApiFormat): string {
   return `${baseUrl}${format === "chat-completions" ? CHAT_COMPLETIONS_PATH : RESPONSES_PATH}`;
+}
+
+function resolveApiKeySource(format: LlmApiFormat | null, genericApiKey: string): OpenAiLlmPublicConfig["apiKeySource"] {
+  if (genericApiKey) {
+    return "LLM_API_KEY";
+  }
+
+  if (format === "chat-completions") {
+    return "DEEPSEEK_API_KEY";
+  }
+
+  if (format === "responses") {
+    return "OPENAI_API_KEY";
+  }
+
+  return null;
+}
+
+export function getOpenAiLlmPublicConfig(env: OpenAiEnv = process.env): OpenAiLlmPublicConfig {
+  const format = normalizeFormat(env.LLM_API_FORMAT);
+  const baseUrl = normalizeBaseUrl(env.LLM_API_BASE_URL);
+  const model = env.OPENAI_MODEL?.trim() ?? "";
+  const genericApiKey = env.LLM_API_KEY?.trim() ?? "";
+  const providerApiKey = format === "chat-completions"
+    ? env.DEEPSEEK_API_KEY?.trim() ?? ""
+    : format === "responses"
+      ? env.OPENAI_API_KEY?.trim() ?? ""
+      : "";
+  const apiKeySource = resolveApiKeySource(format, genericApiKey);
+  const apiKeyConfigured = Boolean(genericApiKey || providerApiKey);
+
+  if (!format) {
+    return {
+      configured: false,
+      format: null,
+      baseUrl,
+      model,
+      apiKeySource,
+      apiKeyConfigured,
+      status: "invalid-format",
+      message: "LLM_API_FORMAT は responses または chat-completions を指定してください。",
+    };
+  }
+
+  if (!apiKeyConfigured) {
+    return {
+      configured: false,
+      format,
+      baseUrl,
+      model,
+      apiKeySource,
+      apiKeyConfigured,
+      status: "api-not-configured",
+      message: `${apiKeySource} が未設定です。サーバー側環境変数を確認してください。`,
+    };
+  }
+
+  if (!model) {
+    return {
+      configured: false,
+      format,
+      baseUrl,
+      model,
+      apiKeySource,
+      apiKeyConfigured,
+      status: "api-not-configured",
+      message: "OPENAI_MODEL が未設定です。サーバー側環境変数を確認してください。",
+    };
+  }
+
+  return {
+    configured: true,
+    format,
+    baseUrl,
+    model,
+    apiKeySource,
+    apiKeyConfigured,
+    status: "configured",
+    message: "実LLMのサーバー側設定が揃っています。",
+  };
 }
 
 export function getOpenAiLlmConfig(env: OpenAiEnv = process.env): OpenAiLlmConfig | OpenAiLlmConfigError {
