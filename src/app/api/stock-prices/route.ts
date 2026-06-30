@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { apiDataSource } from "@/lib/dataSource";
-import { extractMarketApiMessage, extractStockPriceApiRows } from "@/lib/marketApiParsing";
-import { currencyForMarketRegion, normalizeTickerForMarket, resolveMarketRegion } from "@/lib/normalization";
-import { fetchServerMarketApiJson, getServerMarketApiConfig } from "@/lib/serverMarketApi";
-import { formatStockPricePeriod } from "@/lib/updateHistory";
-import type { CurrencyCode, MarketRegion, StockPriceFetchPeriod } from "@/lib/types";
-import type { StockPriceApiFetchResult } from "@/types/api";
+import { apiDataSource } from "../../../lib/dataSource";
+import { extractMarketApiMessage, extractStockPriceApiRows } from "../../../lib/marketApiParsing";
+import { currencyForMarketRegion, normalizeTickerForMarket, resolveMarketRegion } from "../../../lib/normalization";
+import { buildStockPriceServerMarketApiParams, fetchServerMarketApiJson, getServerMarketApiConfig } from "../../../lib/serverMarketApi";
+import { formatStockPricePeriod } from "../../../lib/updateHistory";
+import type { CurrencyCode, MarketRegion, StockPriceFetchPeriod } from "../../../lib/types";
+import type { StockPriceApiFetchResult } from "../../../types/api";
 
 export const runtime = "nodejs";
 
@@ -77,14 +77,13 @@ export async function POST(request: Request) {
 
   const fetchResult = await fetchServerMarketApiJson({
     config: config.config,
-    params: {
+    params: buildStockPriceServerMarketApiParams({
+      provider: config.config.provider ?? "generic",
       symbol: normalizedTicker,
-      ticker: normalizedTicker,
       period,
-      region: marketRegion,
       marketRegion,
       currency,
-    },
+    }),
   });
 
   if (!fetchResult.ok) {

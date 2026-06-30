@@ -77,9 +77,13 @@ import {
 } from "../src/lib/normalization";
 import {
   buildServerMarketApiUrl,
+  buildStockPriceServerMarketApiParams,
+  createServerMarketApiRequest,
   fetchServerMarketApiJson,
   getServerMarketApiConfig,
+  mapAlphaVantageOutputSize,
 } from "../src/lib/serverMarketApi";
+import { POST as stockPricesPost } from "../src/app/api/stock-prices/route";
 import {
   normalizeApiStockPriceRows,
 } from "../src/lib/stockPriceNormalizer";
@@ -130,6 +134,7 @@ import {
 } from "../src/lib/stock-math";
 import { generateMockLlmAnalysis, generateRealLlmAnalysis } from "../src/services/llmService";
 import { updateStockPricesFromApi } from "../src/services/stockPriceUpdateService";
+import type { StockPriceApiFetchResult } from "../src/types/api";
 import type { EarningsCalendarItem, LlmOutputType, MarketRegion, NewsItem, PriceRow, StockProfile } from "../src/lib/types";
 
 function makePrices(count: number): PriceRow[] {
@@ -686,6 +691,18 @@ async function run(): Promise<void> {
     STOCK_PRICE_API_BASE_URL: "https://example.com/prices",
   });
   assert.equal(stockApiConfig.ok, true);
+  if (stockApiConfig.ok) {
+    assert.equal(stockApiConfig.config.provider, "generic");
+  }
+  const stockAlphaVantageConfig = getServerMarketApiConfig("stock-price", {
+    STOCK_PRICE_API_PROVIDER: "alpha-vantage",
+    STOCK_PRICE_API_KEY: "av-test-key",
+    STOCK_PRICE_API_BASE_URL: "https://www.alphavantage.co/query",
+  });
+  assert.equal(stockAlphaVantageConfig.ok, true);
+  if (stockAlphaVantageConfig.ok) {
+    assert.equal(stockAlphaVantageConfig.config.provider, "alpha-vantage");
+  }
   const marketUrl = buildServerMarketApiUrl("https://example.com/prices?existing=1", {
     symbol: "TEST",
     period: "1m",
@@ -693,6 +710,64 @@ async function run(): Promise<void> {
   assert.notEqual(marketUrl, null);
   assert.equal(marketUrl?.includes("SECRET_API_KEY"), false);
   assert.equal(marketUrl?.includes("symbol=TEST"), true);
+  assert.equal(mapAlphaVantageOutputSize("1m"), "compact");
+  assert.equal(mapAlphaVantageOutputSize("3m"), "compact");
+  assert.equal(mapAlphaVantageOutputSize("6m"), "compact");
+  assert.equal(mapAlphaVantageOutputSize("1y"), "full");
+  assert.equal(mapAlphaVantageOutputSize("3y"), "full");
+  assert.equal(mapAlphaVantageOutputSize("5y"), "full");
+  assert.equal(mapAlphaVantageOutputSize("all"), "full");
+  assert.deepEqual(buildStockPriceServerMarketApiParams({
+    provider: "generic",
+    symbol: "AAPL",
+    period: "1m",
+    marketRegion: "US",
+    currency: "USD",
+  }), {
+    symbol: "AAPL",
+    ticker: "AAPL",
+    period: "1m",
+    region: "US",
+    marketRegion: "US",
+    currency: "USD",
+  });
+  assert.deepEqual(buildStockPriceServerMarketApiParams({
+    provider: "alpha-vantage",
+    symbol: "7203.T",
+    period: "5y",
+    marketRegion: "JP",
+    currency: "JPY",
+  }), {
+    function: "TIME_SERIES_DAILY",
+    symbol: "7203.T",
+    outputsize: "full",
+  });
+  const genericServerRequest = createServerMarketApiRequest({
+    config: { apiKey: "SECRET_API_KEY", baseUrl: "https://example.com/prices", provider: "generic" },
+    params: { symbol: "AAPL", period: "1m" },
+  });
+  assert.notEqual(genericServerRequest, null);
+  assert.equal(genericServerRequest?.url.includes("SECRET_API_KEY"), false);
+  assert.equal((genericServerRequest?.headers as Record<string, string>).Authorization, "Bearer SECRET_API_KEY");
+  const alphaVantageServerRequest = createServerMarketApiRequest({
+    config: { apiKey: "av-test-key", baseUrl: "https://www.alphavantage.co/query?existing=1", provider: "alpha-vantage" },
+    params: buildStockPriceServerMarketApiParams({
+      provider: "alpha-vantage",
+      symbol: "AAPL",
+      period: "1m",
+      marketRegion: "US",
+      currency: "USD",
+    }),
+  });
+  assert.notEqual(alphaVantageServerRequest, null);
+  assert.equal((alphaVantageServerRequest?.headers as Record<string, string>).Authorization, undefined);
+  assert.equal((alphaVantageServerRequest?.headers as Record<string, string>)["X-API-Key"], undefined);
+  const alphaVantageUrl = new URL(alphaVantageServerRequest!.url);
+  assert.equal(alphaVantageUrl.searchParams.get("existing"), "1");
+  assert.equal(alphaVantageUrl.searchParams.get("function"), "TIME_SERIES_DAILY");
+  assert.equal(alphaVantageUrl.searchParams.get("symbol"), "AAPL");
+  assert.equal(alphaVantageUrl.searchParams.get("outputsize"), "compact");
+  assert.equal(alphaVantageUrl.searchParams.get("apikey"), "av-test-key");
   assert.equal(extractStockPriceApiRows({
     "Time Series (Daily)": {
       "2026-01-01": {
@@ -804,6 +879,32 @@ async function run(): Promise<void> {
     assert.equal(extractStockPriceApiRows(serverSuccessResult.payload)?.length, 3);
   }
 
+  let alphaVantageFetchUrl = "";
+  let alphaVantageFetchHeaders: HeadersInit | undefined;
+  globalThis.fetch = async (input, init) => {
+    alphaVantageFetchUrl = String(input);
+    alphaVantageFetchHeaders = init?.headers;
+    return new Response(JSON.stringify(usAlphaFixture), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  const alphaVantageFetchResult = await fetchServerMarketApiJson({
+    config: { apiKey: "av-test-key", baseUrl: "https://www.alphavantage.co/query", provider: "alpha-vantage" },
+    params: buildStockPriceServerMarketApiParams({
+      provider: "alpha-vantage",
+      symbol: "AAPL",
+      period: "1m",
+      marketRegion: "US",
+      currency: "USD",
+    }),
+  });
+  assert.equal(alphaVantageFetchResult.ok, true);
+  assert.equal(alphaVantageFetchUrl.includes("function=TIME_SERIES_DAILY"), true);
+  assert.equal(alphaVantageFetchUrl.includes("symbol=AAPL"), true);
+  assert.equal(alphaVantageFetchUrl.includes("outputsize=compact"), true);
+  assert.equal(alphaVantageFetchUrl.includes("apikey=av-test-key"), true);
+  assert.equal((alphaVantageFetchHeaders as Record<string, string>).Authorization, undefined);
+  assert.equal((alphaVantageFetchHeaders as Record<string, string>)["X-API-Key"], undefined);
+  assert.equal(JSON.stringify(alphaVantageFetchResult).includes("av-test-key"), false);
+
   globalThis.fetch = async () => new Response(JSON.stringify(loadStockPriceFixture("av_rate_limit_note.json")), { status: 429, headers: { "Content-Type": "application/json" } });
   const serverRateLimitResult = await fetchServerMarketApiJson({
     config: { apiKey: "SECRET_API_KEY", baseUrl: "https://example.com/prices" },
@@ -822,6 +923,65 @@ async function run(): Promise<void> {
   assert.equal(serverInvalidJsonResult.ok, false);
   if (!serverInvalidJsonResult.ok) {
     assert.equal(serverInvalidJsonResult.status, "invalid-format");
+  }
+
+  const originalStockPriceEnv = {
+    STOCK_PRICE_API_PROVIDER: process.env.STOCK_PRICE_API_PROVIDER,
+    STOCK_PRICE_API_KEY: process.env.STOCK_PRICE_API_KEY,
+    STOCK_PRICE_API_BASE_URL: process.env.STOCK_PRICE_API_BASE_URL,
+  };
+  let stockPriceRouteFetchUrl = "";
+  try {
+    process.env.STOCK_PRICE_API_PROVIDER = "alpha-vantage";
+    process.env.STOCK_PRICE_API_KEY = "av-test-key";
+    process.env.STOCK_PRICE_API_BASE_URL = "https://www.alphavantage.co/query";
+    globalThis.fetch = async (input) => {
+      stockPriceRouteFetchUrl = String(input);
+      return new Response(JSON.stringify(usAlphaFixture), { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+    const stockRouteResponse = await stockPricesPost(new Request("http://localhost/api/stock-prices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ticker: "aapl",
+        providerName: "Alpha Vantage",
+        period: "1m",
+        marketRegion: "US",
+      }),
+    }));
+    const stockRouteJson = await stockRouteResponse.json() as StockPriceApiFetchResult;
+    assert.equal(stockRouteJson.ok, true);
+    assert.equal(stockRouteJson.normalizedTicker, "AAPL");
+    assert.equal(stockPriceRouteFetchUrl.includes("function=TIME_SERIES_DAILY"), true);
+    assert.equal(stockPriceRouteFetchUrl.includes("symbol=AAPL"), true);
+    assert.equal(stockPriceRouteFetchUrl.includes("outputsize=compact"), true);
+    assert.equal(stockPriceRouteFetchUrl.includes("apikey=av-test-key"), true);
+    assert.equal(JSON.stringify(stockRouteJson).includes("av-test-key"), false);
+    assert.equal(JSON.stringify(stockRouteJson.dataSource).includes("apikey"), false);
+
+    globalThis.fetch = async () => new Response(JSON.stringify(loadStockPriceFixture("av_rate_limit_note.json")), { status: 200, headers: { "Content-Type": "application/json" } });
+    const rateLimitedRouteResponse = await stockPricesPost(new Request("http://localhost/api/stock-prices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ticker: "7203",
+        providerName: "Alpha Vantage",
+        period: "1y",
+        marketRegion: "JP",
+      }),
+    }));
+    const rateLimitedRouteJson = await rateLimitedRouteResponse.json() as StockPriceApiFetchResult;
+    assert.equal(rateLimitedRouteResponse.status, 429);
+    assert.equal(rateLimitedRouteJson.status, "rate-limited");
+    assert.equal(JSON.stringify(rateLimitedRouteJson).includes("av-test-key"), false);
+  } finally {
+    for (const [key, value] of Object.entries(originalStockPriceEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
   }
 
   let stockAdapterRequestBody = "";
