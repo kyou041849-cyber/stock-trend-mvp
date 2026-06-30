@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type React from "react";
 import type { LucideIcon } from "lucide-react";
 import { Download, List, RefreshCw, Save, Upload } from "lucide-react";
-import { ActionButton as DsActionButton, FormField, InfoAlert, PageHeader, SectionCard, inputClassName as dsInputClassName } from "@/components/ui/design-system";
+import { ActionButton as DsActionButton, FormField, InfoAlert, PageHeader, SectionCard, StatusBadge, inputClassName as dsInputClassName } from "@/components/ui/design-system";
 import { loadFundamentalApiSettings, loadStockPriceApiSettings, saveFundamentalApiSettings, saveStockPriceApiSettings } from "@/lib/apiSettings";
 import { createLocalStorageBackup, listStockTrendLocalStorageKeys, parseLocalStorageBackupJson, restoreLocalStorageBackup, type ParsedBackupResult } from "@/lib/localStorageBackup";
 import { checkFundamentalApiConnection } from "@/services/fundamentalUpdateService";
@@ -52,6 +52,40 @@ function formatDateTime(value: string): string {
   return value ? value.replace("T", " ").slice(0, 16) : "-";
 }
 
+type LlmProviderConfigSummary = {
+  configured: boolean;
+  format: "responses" | "chat-completions" | null;
+  baseUrl: string;
+  model: string;
+  apiKeySource: "LLM_API_KEY" | "OPENAI_API_KEY" | "DEEPSEEK_API_KEY" | null;
+  apiKeyConfigured: boolean;
+  status: "configured" | "api-not-configured" | "invalid-format";
+  message: string;
+};
+
+function formatLlmFormat(format: LlmProviderConfigSummary["format"]): string {
+  if (format === "chat-completions") return "OpenAI互換 Chat Completions";
+  if (format === "responses") return "OpenAI Responses";
+  return "形式不明";
+}
+
+function LlmConfigValue({
+  label,
+  value,
+  testId,
+}: {
+  label: string;
+  value: React.ReactNode;
+  testId?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-line bg-slate-50 p-3">
+      <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">{label}</p>
+      <div data-testid={testId} className="mt-2 text-sm font-black text-ink break-words">{value}</div>
+    </div>
+  );
+}
+
 function getBackupKeys(): string[] {
   if (typeof window === "undefined") return [];
   return listStockTrendLocalStorageKeys(window.localStorage);
@@ -71,6 +105,9 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
   const [fundamentalCheckMessage, setFundamentalCheckMessage] = useState("");
   const [isChecking, setIsChecking] = useState(false);
   const [isCheckingFundamental, setIsCheckingFundamental] = useState(false);
+  const [llmProviderConfig, setLlmProviderConfig] = useState<LlmProviderConfigSummary | null>(null);
+  const [llmProviderMessage, setLlmProviderMessage] = useState("サーバー側設定を確認中です。");
+  const [isLoadingLlmProvider, setIsLoadingLlmProvider] = useState(false);
   const apiRows = [
     { label: "ニュースAPI", provider: "NewsApiAdapter" },
     { label: "決算カレンダーAPI", provider: "TDnetAdapter / FinnhubAdapter" },
@@ -157,6 +194,28 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
       setIsCheckingFundamental(false);
     }
   };
+  const loadLlmProviderConfig = async () => {
+    setIsLoadingLlmProvider(true);
+    setLlmProviderMessage("サーバー側設定を確認中です。");
+    try {
+      const response = await fetch("/api/llm/config", { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error("LLM provider config request failed");
+      }
+      const payload = await response.json() as LlmProviderConfigSummary;
+      setLlmProviderConfig(payload);
+      setLlmProviderMessage(payload.message);
+    } catch {
+      setLlmProviderConfig(null);
+      setLlmProviderMessage("LLM設定の取得に失敗しました。サーバー側環境変数と開発サーバーの状態を確認してください。");
+    } finally {
+      setIsLoadingLlmProvider(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadLlmProviderConfig();
+  }, []);
 
   return (
     <section data-testid="settings-view" className="mx-auto grid max-w-4xl gap-5">
@@ -168,6 +227,37 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
           <li className="rounded-md border border-line px-3 py-2">実LLM、株価API、業績APIのキーは `.env.local` に置き、サーバー側API Routeから使います。</li>
           <li className="rounded-md border border-line px-3 py-2">E2E確認では実APIを呼ばず、Mock APIを使います。</li>
         </ul>
+      </SectionCard>
+      <SectionCard
+        data-testid="llm-provider-config"
+        title="現在のLLMプロバイダ（サーバー側）"
+        description="実LLM生成で使うサーバー側の実効設定を、秘密情報を含めずに確認できます。"
+        actions={<Button data-testid="refresh-llm-provider-config" icon={RefreshCw} onClick={loadLlmProviderConfig} disabled={isLoadingLlmProvider}>{isLoadingLlmProvider ? "確認中" : "再確認"}</Button>}
+      >
+        <InfoAlert tone="info" testId="llm-provider-secret-note">
+          APIキーの値は表示しません。画面で確認できるのは、キーが設定済みかどうかと参照している環境変数名だけです。
+        </InfoAlert>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <LlmConfigValue label="設定状態" testId="llm-provider-configured" value={
+            llmProviderConfig?.configured ? (
+              <StatusBadge tone="success">設定済み</StatusBadge>
+            ) : (
+              <StatusBadge tone={llmProviderConfig?.status === "invalid-format" ? "danger" : "warning"}>未設定または要確認</StatusBadge>
+            )
+          } />
+          <LlmConfigValue label="プロバイダ形式" testId="llm-provider-format" value={formatLlmFormat(llmProviderConfig?.format ?? null)} />
+          <LlmConfigValue label="ベースURL" testId="llm-provider-base-url" value={llmProviderConfig?.baseUrl || "未設定"} />
+          <LlmConfigValue label="モデル" testId="llm-provider-model" value={llmProviderConfig?.model || "未設定"} />
+          <LlmConfigValue label="キー設定状況" testId="llm-provider-key-status" value={
+            llmProviderConfig?.apiKeyConfigured ? (
+              <StatusBadge tone="success">設定済み</StatusBadge>
+            ) : (
+              <StatusBadge tone="warning">未設定</StatusBadge>
+            )
+          } />
+          <LlmConfigValue label="キー源" testId="llm-provider-key-source" value={llmProviderConfig?.apiKeySource || "未設定"} />
+        </div>
+        <p data-testid="llm-provider-message" className="mt-4 text-sm font-semibold text-slate-700">{llmProviderMessage}</p>
       </SectionCard>
       <SectionCard title="β版データバックアップ" description="stock-trend-mvp のlocalStorageキーだけをJSONで保存・復元します。APIキーらしい値を検出した場合は中止します。">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
