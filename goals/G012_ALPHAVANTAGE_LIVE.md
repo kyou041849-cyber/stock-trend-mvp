@@ -2,7 +2,7 @@
 
 ## Status
 
-in-progress
+completed
 
 ## Objective
 
@@ -56,7 +56,9 @@ in-progress
 - `pnpm run build`: success
 - `pnpm run test:e2e -- --reporter=line`: success, 3 passed
 - Secret scan: no real API key found; hits are env var names, docs, test fake values including `av-test-key`, server-side adapters, and `risk-` / `task-` false positives
-- PR / CI: pending
+- PR: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/7`
+- CI run: `28437898362`
+- CI conclusion: `success`
 
 ## Human Needed
 

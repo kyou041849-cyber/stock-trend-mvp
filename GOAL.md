@@ -71,7 +71,7 @@ G012: 株価ライブ疎通（Alpha Vantage適合）。
 | G009 | accepted | manager | codex-verifiable | G008 merged to main | none | LLMプロバイダ可変化（OpenAI互換 Chat Completions対応） | local validation, PR #4, GitHub Actions CI, and main merge succeeded; live DeepSeek smoke remains manual | [goals/G009_LLM_PROVIDER_CONFIG.md](goals/G009_LLM_PROVIDER_CONFIG.md) |
 | G010 | accepted | manager | codex-verifiable | G009 merged to main | none | RSI/SMAクロスをトレンド強さスコアへ加点 | local validation, PR #5, and GitHub Actions CI succeeded; main merge remains human | [goals/G010_INDICATOR_SCORING.md](goals/G010_INDICATOR_SCORING.md) |
 | G011 | accepted | manager | codex-verifiable | G010 merged to main | none | プロバイダ設定のUI表示改善（実効LLM設定の非秘密表示） | local validation, PR #6, and GitHub Actions CI succeeded; main merge remains human | [goals/G011_PROVIDER_SETTINGS_UI.md](goals/G011_PROVIDER_SETTINGS_UI.md) |
-| G012 | in-progress | manager | codex-verifiable | G011 merged to main | none | 株価ライブ疎通（Alpha Vantage適合） | provider split, Alpha Vantage request shaping, key non-exposure tests, and local validation completed; PR and CI pending | [goals/G012_ALPHAVANTAGE_LIVE.md](goals/G012_ALPHAVANTAGE_LIVE.md) |
+| G012 | accepted | manager | codex-verifiable | G011 merged to main | none | 株価ライブ疎通（Alpha Vantage適合） | local validation, PR #7, and GitHub Actions CI succeeded; live Alpha Vantage smoke remains human-needed | [goals/G012_ALPHAVANTAGE_LIVE.md](goals/G012_ALPHAVANTAGE_LIVE.md) |
 
 ## Human-Needed Queue / Checkpoints
 
@@ -560,7 +560,7 @@ PR / CI:
 
 ## G012 Alpha Vantage Live Stock Price Update
 
-Status: in-progress
+Status: completed
 
 Outcome target: `STOCK_PRICE_API_PROVIDER=alpha-vantage` のとき、サーバー側Route HandlerがAlpha Vantageの `TIME_SERIES_DAILY` 形式に合うURLを構築し、APIキー値をクライアント応答へ出さない。
 
@@ -576,4 +576,10 @@ Goal map note:
 
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
-| G012 | in-progress | manager | codex-verifiable | G011 merged to main | 株価ライブ疎通（Alpha Vantage適合） | local validation succeeded; PR and CI pending |
+| G012 | accepted | manager | codex-verifiable | G011 merged to main | 株価ライブ疎通（Alpha Vantage適合） | local validation, PR #7, and CI run `28437898362` succeeded; live smoke remains H007 |
+
+PR / CI:
+
+- PR: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/7`
+- CI run: `28437898362`
+- CI conclusion: `success`
