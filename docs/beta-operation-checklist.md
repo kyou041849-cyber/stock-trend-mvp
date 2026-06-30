@@ -65,10 +65,14 @@
 
 ## 株価API・業績API利用時チェック
 
-- `.env.local` に `STOCK_PRICE_API_KEY` と `STOCK_PRICE_API_BASE_URL` を設定した
+- `STOCK_PRICE_API_KEY` は `.env.local` ではなくサーバープロセス環境変数に設定した
+- `.env.local` には必要に応じて `STOCK_PRICE_API_PROVIDER` と `STOCK_PRICE_API_BASE_URL` だけを設定した
+- Alpha Vantageを使う場合は `STOCK_PRICE_API_PROVIDER=alpha-vantage` と `STOCK_PRICE_API_BASE_URL=https://www.alphavantage.co/query` を設定した
 - `.env.local` に `FUNDAMENTAL_API_KEY` と `FUNDAMENTAL_API_BASE_URL` を設定した
 - `STOCK_PRICE_API_BASE_URL` にAPIキーを含めていない
+- Alpha Vantageの `apikey` はサーバー側送信URLにだけ付与され、画面やlocalStorageに出ないことを理解した
 - 株価APIの実取得対象は日本株なら `.T` 付き、米国株なら通常ティッカーで取得できるか確認した
+- Alpha Vantage無料枠では日本株 `.T` のカバレッジが不安定な場合があるため、米国株でも疎通確認する
 - プロバイダがヘッダー認証に対応しているか、またはサーバー側で安全に扱える方式か確認した
 - APIキーを設定画面、localStorage、CSV、メモ、スクリーンショットに含めていない
 - 設定画面のAPIキー欄が「サーバー側環境変数で設定」になっている

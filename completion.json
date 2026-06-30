@@ -7,9 +7,9 @@
     "category":  "daily_issues",
     "mode":  "local_app",
     "created_at":  "2026-06-14T23:09:46+09:00",
-    "updated_at":  "2026-06-30T01:15:00+09:00",
-    "revision":  8,
-    "summary":  "株価CSV、年度別業績、ウォッチリスト、決算メモ、リスクメモ、AI分析履歴、サーバー側API Route、JP/US実株価データ正規化、RSI/SMAクロスのモメンタム確認スコア、OpenAI/Chat Completions可変LLM経路、非秘密の実効LLM設定表示を localStorage 中心で扱う銘柄調査補助ローカルWebアプリ。",
+    "updated_at":  "2026-06-30T19:34:45+09:00",
+    "revision":  10,
+    "summary":  "株価CSV、年度別業績、ウォッチリスト、決算メモ、リスクメモ、AI分析履歴、サーバー側API Route、JP/US実株価データ正規化、Alpha Vantage向け株価APIリクエスト整形、RSI/SMAクロスのモメンタム確認スコア、OpenAI/Chat Completions可変LLM経路、非秘密の実効LLM設定表示を localStorage 中心で扱う銘柄調査補助ローカルWebアプリ。",
     "primary_output":  "README.md",
     "html_output":  "",
     "output_files":  [
@@ -21,6 +21,6 @@
     "folder":  "C:\\Users\\kyou0\\Documents\\日常の困りごと\\stock-trend-mvp",
     "parent_request_id":  "",
     "continuation_policy":  "external_daily_issue_project",
-    "verification":  "README.md, package.json, src, scripts の存在を確認。G006で株価/業績APIの実取得をサーバー側Route Handler経由へ統一。G007で日本株/米国株のティッカー・地域・通貨正規化とfixture/stub検証を追加。G008でRSI(14)とSMA25/75クロス参考シグナルを追加。G009でOpenAI Responses後方互換を維持しつつOpenAI互換Chat Completions経路を追加し、typecheck/test/build/E2EとPR #4 CI successで確認した。G010でRSI(14) 50以上とSMA25/75ゴールデンクロスをトレンド強さスコアへ加点する実装を追加し、typecheck/test/build/E2EとPR #5 CI successで確認した。G011で非秘密のLLM設定要約APIと設定画面表示を追加し、typecheck/test/build/E2EとPR #6 CI successで確認した。",
-    "risks":  "表示スコアとRSI/SMAクロスは機械的集計であり投資判断ではない。RSI閾値、SMA window、各重みの最終確定は運用後に人間が判断する。node_modules や .next は index 対象外。実APIキーはサーバー側環境変数のみで扱い、ブラウザ/localStorage/API設定要約には保存・表示しない。DeepSeekなどのライブ疎通は人間が実キーを設定して手動確認する。"
+    "verification":  "README.md, package.json, src, scripts の存在を確認。G006で株価/業績APIの実取得をサーバー側Route Handler経由へ統一。G007で日本株/米国株のティッカー・地域・通貨正規化とfixture/stub検証を追加。G008でRSI(14)とSMA25/75クロス参考シグナルを追加。G009でOpenAI Responses後方互換を維持しつつOpenAI互換Chat Completions経路を追加し、typecheck/test/build/E2EとPR #4 CI successで確認した。G010でRSI(14) 50以上とSMA25/75ゴールデンクロスをトレンド強さスコアへ加点する実装を追加し、typecheck/test/build/E2EとPR #5 CI successで確認した。G011で非秘密のLLM設定要約APIと設定画面表示を追加し、typecheck/test/build/E2EとPR #6 CI successで確認した。G012でAlpha Vantage向け株価APIリクエスト整形を追加し、typecheck/test/build/E2EとPR #7 CI successで確認した。",
+    "risks":  "表示スコアとRSI/SMAクロスは機械的集計であり投資判断ではない。RSI閾値、SMA window、各重みの最終確定は運用後に人間が判断する。node_modules や .next は index 対象外。実APIキーはサーバー側環境変数のみで扱い、ブラウザ/localStorage/API設定要約には保存・表示しない。Alpha Vantageのapikeyはサーバーから外部APIへ送るURLにのみ付与し、クライアント応答には出さない。DeepSeekやAlpha Vantageなどのライブ疎通は人間が実キーを設定して手動確認する。"
 }

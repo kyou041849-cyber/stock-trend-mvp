@@ -139,7 +139,7 @@ OPENAI_MODEL=gpt-5-mini
 LLM_API_BASE_URL=
 LLM_API_FORMAT=
 
-STOCK_PRICE_API_KEY=
+STOCK_PRICE_API_PROVIDER=
 STOCK_PRICE_API_BASE_URL=
 
 FUNDAMENTAL_API_KEY=
@@ -166,9 +166,18 @@ node scripts/live-llm-smoke.mjs
 
 設定画面ではAPIプロバイダ名やMockモードを管理できますが、APIキーは入力・保存しません。実LLMについては、サーバー側で有効になっているプロバイダ形式、ベースURL、モデル、キー設定状況、キー源名だけを非秘密情報として確認できます。株価API・業績APIの実接続は、ブラウザから直接外部APIへfetchせず、`/api/stock-prices` と `/api/fundamentals` のサーバー側Route Handlerを通します。β版ではMock APIでの動作確認を優先してください。
 
-株価APIは日本株・米国株の地域情報をサーバー側Routeへ渡します。日本株は `7203` のような4桁コードを `7203.T` に正規化し、地域に応じて `JPY` / `USD` を株価データへ付与します。外部APIキーはヘッダーで扱い、URLクエリやlocalStorageには保存しません。
+株価APIは日本株・米国株の地域情報をサーバー側Routeへ渡します。日本株は `7203` のような4桁コードを `7203.T` に正規化し、地域に応じて `JPY` / `USD` を株価データへ付与します。
 
-実株価APIの手動疎通を行う場合は、Next.jsサーバーを起動し、サーバー側の `.env.local` に株価API設定を入れたうえで次を実行します。このスクリプトはCIでは実行しません。
+`STOCK_PRICE_API_PROVIDER` は未設定または `generic` の場合、従来どおり `Authorization` / `X-API-Key` ヘッダーでサーバー側から外部APIへキーを送ります。Alpha Vantageを使う場合は次のように設定します。
+
+```text
+STOCK_PRICE_API_PROVIDER=alpha-vantage
+STOCK_PRICE_API_BASE_URL=https://www.alphavantage.co/query
+```
+
+Alpha Vantageは `function=TIME_SERIES_DAILY`、`symbol`、`outputsize`、`apikey` のクエリ形式を要求します。このアプリでは `apikey` はサーバーからAlpha Vantageへ送るURLにのみ付与し、ブラウザ応答、画面、localStorage、ログには出しません。無料枠では日本株の `.T` ティッカーのカバレッジが不安定な場合があります。米国株の `AAPL` などは比較的確認しやすい想定です。
+
+実株価APIの手動疎通を行う場合は、Next.jsサーバーを起動し、`STOCK_PRICE_API_KEY` はサーバープロセス環境変数に設定します。`.env.local` に実キーは書かず、必要ならプロバイダ名とベースURLだけを置いて次を実行します。このスクリプトはCIでは実行しません。
 
 ```powershell
 node scripts/live-stock-smoke.mjs

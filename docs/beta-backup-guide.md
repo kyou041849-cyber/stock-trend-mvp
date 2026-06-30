@@ -51,7 +51,7 @@ screenshots/
 *.log
 ```
 
-`.env.local` には実LLM APIキー、株価APIキー、業績APIキーを置く可能性があるため、絶対にバックアップZIPへ含めないでください。共有するのは `.env.local.example` だけです。
+`.env.local` には実LLM APIキーや業績APIキーなどの秘密情報を置く可能性があるため、絶対にバックアップZIPへ含めないでください。株価APIキーは `.env.local` ではなくサーバープロセス環境変数で扱います。共有するのは `.env.local.example` だけです。
 
 ## localStorageバックアップ
 

@@ -30,6 +30,20 @@
 - ユーザーに必要な判断: 運用後、RSI閾値、SMA window、各配点を変更するか決める。
 - 注意: スコアはチャート上の機械的な集計であり、投資判断ではありません。
 
+### H007: Alpha Vantage 株価ライブ疎通
+
+- 状態: human-needed
+- Blocks: 実Alpha Vantageキーを使うライブ疎通のみ。G012のコード検証、PR、CIはCodex側で継続可能。
+- 推奨デフォルト: CIとローカルテストではfixture/stubで検証し、実キー疎通はユーザーのローカル環境で必要なタイミングに実施する。
+- ユーザーに必要な作業:
+  1. Alpha Vantageの無料APIキーを取得する。
+  2. サーバープロセス環境変数に `STOCK_PRICE_API_KEY` を設定する。
+  3. `STOCK_PRICE_API_PROVIDER=alpha-vantage` を設定する。
+  4. `STOCK_PRICE_API_BASE_URL=https://www.alphavantage.co/query` を設定する。
+  5. Next.jsサーバーを起動する。
+  6. `node scripts/live-stock-smoke.mjs` を実行する。
+- 注意: Alpha Vantage無料枠では日本株 `.T` のカバレッジが不安定な場合がある。まず米国株 `AAPL` でも疎通確認する。実キーをコード、Git、画面、localStorage、ログ、スクリーンショットに残さない。
+
 ## Resolved
 
 ### H001: GitHubリモートの既存履歴をどう扱うか決める
@@ -71,7 +85,6 @@
 
 ## Later / Deferred
 
-- 実株価API・実業績APIの本格接続は別Goalで扱う。
-- G007の実株価APIライブ疎通では、人間がプロバイダ、base URL、APIキーを `.env.local` に設定して `node scripts/live-stock-smoke.mjs` を実行する。
+- 実業績APIの本格接続は別Goalで扱う。
 - G008のRSI閾値、SMA window、トレンドスコア加点有無は運用後に別Goalで調整可能。初期値は RSI14 / 70 / 30、SMA25 / SMA75、参考シグナル0点。
 - localStorageバックアップの世代管理や履歴整理は別Goalで扱う。
