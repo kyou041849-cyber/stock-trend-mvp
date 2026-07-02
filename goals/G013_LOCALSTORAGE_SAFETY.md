@@ -2,7 +2,7 @@
 
 ## Status
 
-in-progress, local validation passed, PR pending
+completed
 
 ## Problem
 
@@ -50,10 +50,11 @@ Local validation:
 - `pnpm run test:e2e -- --reporter=line`: success, 3 passed
 - API key / secret scan: no real key found. Hits are environment variable names, docs, existing server-side adapters, test fake values, and `risk-` / `task-` false positives.
 
-Pending:
+PR / CI:
 
-- PR creation
-- GitHub Actions CI
+- PR: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/8`
+- CI run: `28591075215`
+- CI conclusion: `success`
 
 ## Not In Scope
 

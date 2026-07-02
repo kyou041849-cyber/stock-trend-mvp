@@ -72,7 +72,7 @@ G013: localStorageデータ消失経路の封鎖。
 | G010 | accepted | manager | codex-verifiable | G009 merged to main | none | RSI/SMAクロスをトレンド強さスコアへ加点 | local validation, PR #5, and GitHub Actions CI succeeded; main merge remains human | [goals/G010_INDICATOR_SCORING.md](goals/G010_INDICATOR_SCORING.md) |
 | G011 | accepted | manager | codex-verifiable | G010 merged to main | none | プロバイダ設定のUI表示改善（実効LLM設定の非秘密表示） | local validation, PR #6, and GitHub Actions CI succeeded; main merge remains human | [goals/G011_PROVIDER_SETTINGS_UI.md](goals/G011_PROVIDER_SETTINGS_UI.md) |
 | G012 | accepted | manager | codex-verifiable | G011 merged to main | none | 株価ライブ疎通（Alpha Vantage適合） | local validation, PR #7, and GitHub Actions CI succeeded; live Alpha Vantage smoke remains human-needed | [goals/G012_ALPHAVANTAGE_LIVE.md](goals/G012_ALPHAVANTAGE_LIVE.md) |
-| G013 | in-progress | manager | codex-verifiable | G012 merged to main | none | localStorageデータ消失経路の封鎖 | safe load/save, corrupt raw quarantine, autosave block, usage warning, tests, docs added; PR and CI pending | [goals/G013_LOCALSTORAGE_SAFETY.md](goals/G013_LOCALSTORAGE_SAFETY.md) |
+| G013 | accepted | manager | codex-verifiable | G012 merged to main | none | localStorageデータ消失経路の封鎖 | local validation, PR #8, and GitHub Actions CI succeeded; main merge remains human | [goals/G013_LOCALSTORAGE_SAFETY.md](goals/G013_LOCALSTORAGE_SAFETY.md) |
 
 ## Human-Needed Queue / Checkpoints
 
@@ -587,7 +587,7 @@ PR / CI:
 
 ## G013 localStorage Safety Update
 
-Status: in-progress, local validation passed, PR pending
+Status: completed
 
 Outcome target: JSON破損・非配列・不正stock正規化drop・quota超過で、銘柄データが空配列や不完全データに自動上書きされる経路を塞ぐ。
 
@@ -613,4 +613,10 @@ Goal map note:
 
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
-| G013 | in-progress | manager | codex-verifiable | G012 merged to main | localStorageデータ消失経路の封鎖 | local validation succeeded; PR and GitHub Actions CI pending |
+| G013 | accepted | manager | codex-verifiable | G012 merged to main | localStorageデータ消失経路の封鎖 | local validation, PR #8, and GitHub Actions CI succeeded; main merge remains human |
+
+PR / CI:
+
+- PR: `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/8`
+- CI run: `28591075215`
+- CI conclusion: `success`
