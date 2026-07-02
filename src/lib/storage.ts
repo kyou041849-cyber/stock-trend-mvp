@@ -1,4 +1,5 @@
 import { apiDataSource, apiPlannedDataSource, csvDataSource, manualDataSource, mockApiDataSource, normalizeDataSource } from "./dataSource";
+import { findSensitiveBackupEntries, STOCK_TREND_LOCAL_STORAGE_PREFIX, type LocalStorageLike } from "./localStorageBackup";
 import { sortEarningsRows } from "./growth-math";
 import {
   inferCurrency,
@@ -40,7 +41,52 @@ import type {
   StockPriceUpdateHistory,
 } from "./types";
 
-const STORAGE_KEY = "stock-trend-mvp:stocks:v1";
+export const STOCKS_STORAGE_KEY = "stock-trend-mvp:stocks:v1";
+export const STOCKS_CORRUPT_BACKUP_PREFIX = "stock-trend-mvp:stocks:corrupt:";
+const STORAGE_WARNING_BYTES = 3 * 1024 * 1024;
+const STORAGE_DANGER_BYTES = Math.round(4.5 * 1024 * 1024);
+
+export type StorageUsageEstimate = {
+  keyCount: number;
+  totalBytes: number;
+  stocksBytes: number;
+  warningLevel: "normal" | "warning" | "danger";
+  warningMessage: string;
+};
+
+export type LoadStocksResult =
+  | {
+      ok: true;
+      stocks: StockProfile[];
+      warning?: string;
+      droppedCount?: number;
+      rawBackupKey?: string;
+      rawContainsSensitivePattern?: boolean;
+      shouldBlockAutoSave?: boolean;
+      usage?: StorageUsageEstimate;
+    }
+  | {
+      ok: false;
+      stocks: StockProfile[];
+      error: string;
+      droppedCount?: number;
+      rawBackupKey?: string;
+      rawContainsSensitivePattern?: boolean;
+      shouldBlockAutoSave: true;
+      usage?: StorageUsageEstimate;
+    };
+
+export type SaveStocksResult =
+  | {
+      ok: true;
+      bytes: number;
+      usage?: StorageUsageEstimate;
+    }
+  | {
+      ok: false;
+      message: string;
+      reason: "quota-exceeded" | "storage-unavailable" | "serialization-error" | "unknown";
+    };
 
 function isPriceRow(value: unknown): value is PriceRow {
   if (!value || typeof value !== "object") {
@@ -624,6 +670,88 @@ function normalizeStock(value: unknown): StockProfile | null {
   };
 }
 
+function estimateStringBytes(value: string): number {
+  return value.length * 2;
+}
+
+function getStorageUsageWarning(totalBytes: number): Pick<StorageUsageEstimate, "warningLevel" | "warningMessage"> {
+  if (totalBytes >= STORAGE_DANGER_BYTES) {
+    return {
+      warningLevel: "danger",
+      warningMessage: "localStorage使用量が大きく、保存失敗リスクが高い状態です。バックアップJSONの保存や古い履歴の整理を検討してください。",
+    };
+  }
+
+  if (totalBytes >= STORAGE_WARNING_BYTES) {
+    return {
+      warningLevel: "warning",
+      warningMessage: "localStorage使用量が増えています。実データ投入前後はバックアップJSONを保存してください。",
+    };
+  }
+
+  return {
+    warningLevel: "normal",
+    warningMessage: "localStorage使用量は通常範囲です。",
+  };
+}
+
+export function estimateStockTrendLocalStorageUsage(storage: LocalStorageLike): StorageUsageEstimate {
+  let totalBytes = 0;
+  let stocksBytes = 0;
+  let keyCount = 0;
+
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (!key?.startsWith(STOCK_TREND_LOCAL_STORAGE_PREFIX)) {
+      continue;
+    }
+
+    const value = storage.getItem(key) ?? "";
+    const bytes = estimateStringBytes(key) + estimateStringBytes(value);
+    keyCount += 1;
+    totalBytes += bytes;
+    if (key === STOCKS_STORAGE_KEY) {
+      stocksBytes = bytes;
+    }
+  }
+
+  return {
+    keyCount,
+    totalBytes,
+    stocksBytes,
+    ...getStorageUsageWarning(totalBytes),
+  };
+}
+
+function isQuotaExceededError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const row = error as { name?: string; code?: number };
+  return row.name === "QuotaExceededError" || row.name === "NS_ERROR_DOM_QUOTA_REACHED" || row.code === 22 || row.code === 1014;
+}
+
+function createCorruptBackupKey(now = new Date()): string {
+  const stamp = now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+  return `${STOCKS_CORRUPT_BACKUP_PREFIX}${stamp}`;
+}
+
+function quarantineCorruptStocksRaw(storage: LocalStorageLike, raw: string): {
+  rawBackupKey?: string;
+  rawContainsSensitivePattern: boolean;
+} {
+  const rawContainsSensitivePattern = findSensitiveBackupEntries({ [STOCKS_STORAGE_KEY]: raw }).length > 0;
+  const rawBackupKey = createCorruptBackupKey();
+
+  try {
+    storage.setItem(rawBackupKey, raw);
+    return { rawBackupKey, rawContainsSensitivePattern };
+  } catch {
+    return { rawContainsSensitivePattern };
+  }
+}
+
 export function createStockId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -632,38 +760,116 @@ export function createStockId(): string {
   return `stock-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export function loadStocks(): StockProfile[] {
-  if (typeof window === "undefined") {
-    return [];
+export function loadStocksWithSafety(storage?: LocalStorageLike): LoadStocksResult {
+  if (typeof window === "undefined" && !storage) {
+    return { ok: true, stocks: [] };
   }
 
+  const localStorage = storage ?? window.localStorage;
+  const usage = estimateStockTrendLocalStorageUsage(localStorage);
+
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STOCKS_STORAGE_KEY);
     if (!raw) {
-      return getSampleStocks();
+      return { ok: true, stocks: getSampleStocks(), usage };
     }
 
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) {
-      return [];
+      const quarantine = quarantineCorruptStocksRaw(localStorage, raw);
+      return {
+        ok: false,
+        stocks: [],
+        error: "銘柄データの形式が配列ではありません。自動保存を停止しています。",
+        shouldBlockAutoSave: true,
+        usage,
+        ...quarantine,
+      };
     }
 
-    return parsed
+    const normalized = parsed
       .map(normalizeStock)
       .filter((stock): stock is StockProfile => stock !== null);
+    const droppedCount = parsed.length - normalized.length;
+    if (droppedCount > 0) {
+      const quarantine = quarantineCorruptStocksRaw(localStorage, raw);
+      const message = `${droppedCount} 件の銘柄データを正規化できませんでした。既存データ保護のため自動保存を停止しています。`;
+      if (normalized.length === 0) {
+        return {
+          ok: false,
+          stocks: [],
+          error: message,
+          shouldBlockAutoSave: true,
+          droppedCount,
+          usage,
+          ...quarantine,
+        };
+      }
+
+      return {
+        ok: true,
+        stocks: normalized,
+        warning: message,
+        droppedCount,
+        shouldBlockAutoSave: true,
+        usage,
+        ...quarantine,
+      };
+    }
+
+    return { ok: true, stocks: normalized, usage };
   } catch {
-    return [];
+    const raw = localStorage.getItem(STOCKS_STORAGE_KEY);
+    const quarantine = raw ? quarantineCorruptStocksRaw(localStorage, raw) : { rawContainsSensitivePattern: false };
+    return {
+      ok: false,
+      stocks: [],
+      error: "銘柄データのJSONを読み込めませんでした。自動保存を停止しています。",
+      shouldBlockAutoSave: true,
+      usage,
+      ...quarantine,
+    };
   }
 }
 
-export function saveStocks(stocks: StockProfile[]): void {
-  if (typeof window === "undefined") {
-    return;
+export function loadStocks(): StockProfile[] {
+  const result = loadStocksWithSafety();
+  return result.ok ? result.stocks : [];
+}
+
+export function saveStocks(stocks: StockProfile[], storage?: LocalStorageLike): SaveStocksResult {
+  if (typeof window === "undefined" && !storage) {
+    return { ok: false, message: "ブラウザ環境ではないため保存できません。", reason: "storage-unavailable" };
+  }
+
+  const localStorage = storage ?? window.localStorage;
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(stocks);
+  } catch {
+    return { ok: false, message: "銘柄データをJSONに変換できなかったため保存できませんでした。", reason: "serialization-error" };
   }
 
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stocks));
+    localStorage.setItem(STOCKS_STORAGE_KEY, serialized);
+    return {
+      ok: true,
+      bytes: estimateStringBytes(STOCKS_STORAGE_KEY) + estimateStringBytes(serialized),
+      usage: estimateStockTrendLocalStorageUsage(localStorage),
+    };
   } catch (error) {
-    console.error("Failed to save stocks to localStorage", error);
+    if (isQuotaExceededError(error)) {
+      return {
+        ok: false,
+        message: "localStorageの容量上限に近いため、銘柄データを保存できませんでした。バックアップJSONを保存し、古い履歴の整理を検討してください。",
+        reason: "quota-exceeded",
+      };
+    }
+
+    return {
+      ok: false,
+      message: "localStorageへの保存に失敗しました。ブラウザ設定や空き容量を確認してください。",
+      reason: "unknown",
+    };
   }
 }

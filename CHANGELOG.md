@@ -2,6 +2,15 @@
 
 このアプリは調査補助ツールです。各変更は、入力済みデータの整理、確認、記録をしやすくするためのものです。
 
+## Unreleased
+
+### localStorage安全化
+
+- 銘柄データのJSON破損、非配列形式、正規化できない行を検出した場合に自動保存を停止
+- 破損rawを `stock-trend-mvp:stocks:corrupt:<timestamp>` へ退避
+- 保存失敗やquota系エラーをUIで通知
+- localStorage使用量の概算を設定画面と警告バナーで確認できるように追加
+
 ## beta-0.1.0 - β版初期タグ
 
 タグ: `beta-0.1.0`

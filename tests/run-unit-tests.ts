@@ -132,6 +132,13 @@ import {
   calculateTrendAnalysis,
   detectSmaCross,
 } from "../src/lib/stock-math";
+import {
+  STOCKS_CORRUPT_BACKUP_PREFIX,
+  STOCKS_STORAGE_KEY,
+  estimateStockTrendLocalStorageUsage,
+  loadStocksWithSafety,
+  saveStocks,
+} from "../src/lib/storage";
 import { generateMockLlmAnalysis, generateRealLlmAnalysis } from "../src/services/llmService";
 import { updateStockPricesFromApi } from "../src/services/stockPriceUpdateService";
 import type { StockPriceApiFetchResult } from "../src/types/api";
@@ -680,6 +687,89 @@ async function run(): Promise<void> {
   assert.equal(apiSaveResult.ok, true);
   assert.equal(JSON.stringify(loadStockPriceApiSettings()).includes("SECRET_API_KEY"), false);
   assert.equal([...historyStorage.values()].join("\n").includes("SECRET_API_KEY"), false);
+
+  const storageStock = makeStockFixture();
+  const normalStockStorage = createMemoryStorage({
+    [STOCKS_STORAGE_KEY]: JSON.stringify([storageStock]),
+  });
+  const loadedStocks = loadStocksWithSafety(normalStockStorage);
+  assert.equal(loadedStocks.ok, true);
+  assert.equal(loadedStocks.stocks.length, 1);
+  assert.equal(loadedStocks.stocks[0].ticker, storageStock.ticker);
+
+  const savedStocks = saveStocks([storageStock], normalStockStorage);
+  assert.equal(savedStocks.ok, true);
+  if (savedStocks.ok) {
+    assert.equal(savedStocks.bytes > 0, true);
+    assert.equal(savedStocks.usage?.keyCount, 1);
+  }
+
+  const corruptStorage = createMemoryStorage({
+    [STOCKS_STORAGE_KEY]: "{ bad json",
+  });
+  const corruptLoad = loadStocksWithSafety(corruptStorage);
+  assert.equal(corruptLoad.ok, false);
+  assert.equal(corruptLoad.stocks.length, 0);
+  assert.equal(corruptLoad.shouldBlockAutoSave, true);
+  assert.equal(Boolean(corruptLoad.rawBackupKey?.startsWith(STOCKS_CORRUPT_BACKUP_PREFIX)), true);
+  assert.equal(corruptStorage.getItem(STOCKS_STORAGE_KEY), "{ bad json");
+  assert.equal(corruptStorage.getItem(corruptLoad.rawBackupKey ?? ""), "{ bad json");
+
+  const nonArrayStorage = createMemoryStorage({
+    [STOCKS_STORAGE_KEY]: JSON.stringify({ id: "not-array" }),
+  });
+  const nonArrayLoad = loadStocksWithSafety(nonArrayStorage);
+  assert.equal(nonArrayLoad.ok, false);
+  assert.equal(nonArrayLoad.shouldBlockAutoSave, true);
+  assert.equal(Boolean(nonArrayLoad.rawBackupKey?.startsWith(STOCKS_CORRUPT_BACKUP_PREFIX)), true);
+
+  const partialInvalidStorage = createMemoryStorage({
+    [STOCKS_STORAGE_KEY]: JSON.stringify([storageStock, { companyName: "idなし" }]),
+  });
+  const partialInvalidLoad = loadStocksWithSafety(partialInvalidStorage);
+  assert.equal(partialInvalidLoad.ok, true);
+  assert.equal(partialInvalidLoad.stocks.length, 1);
+  assert.equal(partialInvalidLoad.droppedCount, 1);
+  assert.equal(partialInvalidLoad.shouldBlockAutoSave, true);
+  assert.equal(Boolean(partialInvalidLoad.rawBackupKey?.startsWith(STOCKS_CORRUPT_BACKUP_PREFIX)), true);
+
+  const legacyStock = {
+    ...storageStock,
+    earnings: [{
+      fiscalYear: "2025",
+      revenue: 1000,
+      operatingProfit: 120,
+      netIncome: 90,
+      period: "2025",
+    }],
+  };
+  const legacyStorage = createMemoryStorage({
+    [STOCKS_STORAGE_KEY]: JSON.stringify([legacyStock]),
+  });
+  const legacyLoad = loadStocksWithSafety(legacyStorage);
+  assert.equal(legacyLoad.ok, true);
+  assert.equal(legacyLoad.stocks[0].earnings[0].operatingIncome, 120);
+  assert.equal(legacyLoad.stocks[0].earnings[0].fiscalYear, "2025");
+
+  const quotaStorage = createMemoryStorage();
+  quotaStorage.setItem = () => {
+    throw Object.assign(new Error("quota"), { name: "QuotaExceededError", code: 22 });
+  };
+  const quotaSave = saveStocks([storageStock], quotaStorage);
+  assert.equal(quotaSave.ok, false);
+  if (!quotaSave.ok) {
+    assert.equal(quotaSave.reason, "quota-exceeded");
+  }
+
+  const usageStorage = createMemoryStorage({
+    [STOCKS_STORAGE_KEY]: "x".repeat(2 * 1024 * 1024),
+    "stock-trend-mvp:llm-outputs:v1": "y".repeat(1024 * 1024),
+    "other-app:key": "z".repeat(1024 * 1024),
+  });
+  const usage = estimateStockTrendLocalStorageUsage(usageStorage);
+  assert.equal(usage.keyCount, 2);
+  assert.equal(usage.totalBytes >= 6 * 1024 * 1024, true);
+  assert.equal(usage.warningLevel, "danger");
 
   const missingStockApiConfig = getServerMarketApiConfig("stock-price", {});
   assert.equal(missingStockApiConfig.ok, false);
