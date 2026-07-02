@@ -73,7 +73,7 @@ G013.1: localStorage安全性の仕上げ。
 | G011 | accepted | manager | codex-verifiable | G010 merged to main | none | プロバイダ設定のUI表示改善（実効LLM設定の非秘密表示） | local validation, PR #6, and GitHub Actions CI succeeded; main merge remains human | [goals/G011_PROVIDER_SETTINGS_UI.md](goals/G011_PROVIDER_SETTINGS_UI.md) |
 | G012 | accepted | manager | codex-verifiable | G011 merged to main | none | 株価ライブ疎通（Alpha Vantage適合） | local validation, PR #7, and GitHub Actions CI succeeded; live Alpha Vantage smoke remains human-needed | [goals/G012_ALPHAVANTAGE_LIVE.md](goals/G012_ALPHAVANTAGE_LIVE.md) |
 | G013 | accepted | manager | codex-verifiable | G012 merged to main | none | localStorageデータ消失経路の封鎖 | local validation, PR #8, and GitHub Actions CI succeeded; main merge remains human | [goals/G013_LOCALSTORAGE_SAFETY.md](goals/G013_LOCALSTORAGE_SAFETY.md) |
-| G013.1 | in-progress | manager | codex-verifiable | G013 merged to main | none | localStorage安全性の仕上げ | local validation succeeded; PR and CI pending | [goals/G013_1_LOCALSTORAGE_POLISH.md](goals/G013_1_LOCALSTORAGE_POLISH.md) |
+| G013.1 | accepted | manager | codex-verifiable | G013 merged to main | none | localStorage安全性の仕上げ | local validation, PR #9, and GitHub Actions CI succeeded; main merge remains human | [goals/G013_1_LOCALSTORAGE_POLISH.md](goals/G013_1_LOCALSTORAGE_POLISH.md) |
 
 ## Human-Needed Queue / Checkpoints
 
@@ -624,7 +624,7 @@ PR / CI:
 
 ## G013.1 localStorage Safety Polish Update
 
-Status: completed locally, PR pending
+Status: accepted, PR #9 CI succeeded; main merge remains human
 
 Outcome target: PR #8 independent verificationで残ったnitsを小さく閉じる。破損raw退避キーの増殖を抑え、localStorage SecurityError環境で画面を壊さず、破損起動E2Eを追加する。
 
@@ -656,8 +656,15 @@ Validation:
 - `npm.cmd run test:e2e -- --reporter=line`: success, 4 passed
 - API key / secret scan: no real API key found; hits are env var names, docs, existing server-side adapters, and test fake values
 
+PR / CI:
+
+- PR: #9, `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/9`
+- Branch: `codex/g013-1-localstorage-polish`
+- Commit: `80fb835 fix: polish localStorage safety handling`
+- CI: GitHub Actions run `28626987037` succeeded
+
 Goal map note:
 
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
-| G013.1 | in-progress | manager | codex-verifiable | G013 merged to main | localStorage安全性の仕上げ | local validation succeeded; PR and CI pending |
+| G013.1 | accepted | manager | codex-verifiable | G013 merged to main | localStorage安全性の仕上げ | local validation, PR #9, and GitHub Actions CI succeeded; main merge remains human |

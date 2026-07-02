@@ -2,7 +2,7 @@
 
 ## Status
 
-completed locally, PR pending
+accepted, PR #9 CI succeeded; main merge remains human
 
 ## Background
 
@@ -46,10 +46,12 @@ Local validation:
 - `npm.cmd run test:e2e -- --reporter=line`: success, 4 passed
 - API key / secret scan: no real key found. Hits are environment variable names, docs, existing server-side adapters, and test fake values such as `SECRET_API_KEY`, `av-test-key`, and `sk-test-secret-key-1234567890`.
 
-Pending:
+PR / CI:
 
-- PR creation
-- PR CI
+- PR: #9, `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/9`
+- Branch: `codex/g013-1-localstorage-polish`
+- Commit: `80fb835 fix: polish localStorage safety handling`
+- CI: GitHub Actions run `28626987037` succeeded
 
 ## Human Needed
 
