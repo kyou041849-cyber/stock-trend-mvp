@@ -103,6 +103,8 @@ E2Eの失敗時は、GitHub Actionsのartifactに `test-results` や `playwright
 
 localStorageのデータはGitでは管理されません。実データを入れる前や大きな取り込み前は、設定画面の「β版データバックアップ」からバックアップJSONを保存してください。復元は上書き方式です。
 
+銘柄データのJSON破損や形式不一致を検出した場合、アプリは元データを `stock-trend-mvp:stocks:corrupt:<timestamp>` キーへ退避し、自動保存を停止します。これにより、破損していた元データを空配列で上書きしないようにしています。保存失敗や容量リスクがある場合は画面上部と設定画面に警告を表示します。
+
 詳しい手順は [docs/beta-backup-guide.md](docs/beta-backup-guide.md) を参照してください。
 
 ## CSV取り込み

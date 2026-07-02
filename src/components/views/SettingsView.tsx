@@ -7,6 +7,7 @@ import { Download, List, RefreshCw, Save, Upload } from "lucide-react";
 import { ActionButton as DsActionButton, FormField, InfoAlert, PageHeader, SectionCard, StatusBadge, inputClassName as dsInputClassName } from "@/components/ui/design-system";
 import { loadFundamentalApiSettings, loadStockPriceApiSettings, saveFundamentalApiSettings, saveStockPriceApiSettings } from "@/lib/apiSettings";
 import { createLocalStorageBackup, listStockTrendLocalStorageKeys, parseLocalStorageBackupJson, restoreLocalStorageBackup, type ParsedBackupResult } from "@/lib/localStorageBackup";
+import { estimateStockTrendLocalStorageUsage, type StorageUsageEstimate } from "@/lib/storage";
 import { checkFundamentalApiConnection } from "@/services/fundamentalUpdateService";
 import { checkStockPriceApiConnection } from "@/services/stockPriceUpdateService";
 import type { FundamentalApiSettings, StockPriceApiSettings } from "@/lib/types";
@@ -43,7 +44,7 @@ function ViewHeader({ title, actions }: { title: string; actions?: React.ReactNo
 function Disclaimer() {
   return (
     <InfoAlert tone="warning">
-      <p>APIキーはブラウザ・localStorage・送信本文には保存しません。実LLM、株価API、業績APIはいずれもサーバー側の `.env.local` から読みます。</p>
+      <p>APIキーはブラウザ・localStorage・送信本文には保存しません。実LLM、株価API、業績APIはいずれもサーバー側環境変数から読みます。</p>
     </InfoAlert>
   );
 }
@@ -91,10 +92,24 @@ function getBackupKeys(): string[] {
   return listStockTrendLocalStorageKeys(window.localStorage);
 }
 
+function getStorageUsage(): StorageUsageEstimate | null {
+  if (typeof window === "undefined") return null;
+  return estimateStockTrendLocalStorageUsage(window.localStorage);
+}
+
+function formatStorageBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  }
+
+  return `${Math.round(bytes / 1024)} KB`;
+}
+
 export function SettingsView({ onBack }: { onBack: () => void }) {
   const [settings, setSettings] = useState<StockPriceApiSettings>(() => loadStockPriceApiSettings());
   const [fundamentalSettings, setFundamentalSettings] = useState<FundamentalApiSettings>(() => loadFundamentalApiSettings());
   const [backupKeys, setBackupKeys] = useState<string[]>(() => getBackupKeys());
+  const [storageUsage, setStorageUsage] = useState<StorageUsageEstimate | null>(() => getStorageUsage());
   const [backupMessage, setBackupMessage] = useState("");
   const [restoreMessage, setRestoreMessage] = useState("");
   const [restorePreview, setRestorePreview] = useState<ParsedBackupResult | null>(null);
@@ -120,6 +135,7 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
   };
   const refreshBackupKeys = () => {
     setBackupKeys(getBackupKeys());
+    setStorageUsage(getStorageUsage());
   };
   const handleBackupDownload = () => {
     if (typeof window === "undefined") return;
@@ -224,7 +240,7 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
       <SectionCard title="安全に関する注意" description="設定を変更する前に確認してください。">
         <ul className="grid gap-2 text-sm font-semibold text-slate-700">
           <li className="rounded-md border border-line px-3 py-2">APIキーはlocalStorageに保存しません。</li>
-          <li className="rounded-md border border-line px-3 py-2">実LLM、株価API、業績APIのキーは `.env.local` に置き、サーバー側API Routeから使います。</li>
+          <li className="rounded-md border border-line px-3 py-2">実LLM、株価API、業績APIのキーはサーバー側環境変数に置き、サーバー側API Routeから使います。</li>
           <li className="rounded-md border border-line px-3 py-2">E2E確認では実APIを呼ばず、Mock APIを使います。</li>
         </ul>
       </SectionCard>
@@ -260,6 +276,29 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
         <p data-testid="llm-provider-message" className="mt-4 text-sm font-semibold text-slate-700">{llmProviderMessage}</p>
       </SectionCard>
       <SectionCard title="β版データバックアップ" description="stock-trend-mvp のlocalStorageキーだけをJSONで保存・復元します。APIキーらしい値を検出した場合は中止します。">
+        {storageUsage ? (
+          <div data-testid="local-storage-usage" className="mb-4 grid gap-3 rounded-lg border border-line bg-white p-4 sm:grid-cols-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">対象キー</p>
+              <p className="mt-1 text-lg font-black text-ink">{storageUsage.keyCount}件</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">合計目安</p>
+              <p className="mt-1 text-lg font-black text-ink">{formatStorageBytes(storageUsage.totalBytes)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">銘柄データ</p>
+              <p className="mt-1 text-lg font-black text-ink">{formatStorageBytes(storageUsage.stocksBytes)}</p>
+            </div>
+            {storageUsage.warningLevel !== "normal" ? (
+              <div className="sm:col-span-3">
+                <InfoAlert tone={storageUsage.warningLevel === "danger" ? "danger" : "warning"} testId="local-storage-usage-warning">
+                  {storageUsage.warningMessage}
+                </InfoAlert>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="rounded-lg border border-line bg-slate-50 p-4">
             <h2 className="text-base font-bold text-ink">バックアップ</h2>

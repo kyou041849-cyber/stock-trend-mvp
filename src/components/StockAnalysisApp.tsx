@@ -89,7 +89,7 @@ import { inferCurrency, inferFinancialUnit, inferMarketRegion, inferPriceUnit, n
 import { parsePriceCsv, type CsvImportResult } from "@/lib/csv";
 import { calculateRiskItemScore, calculateRiskScore, getRiskScoreLabel } from "@/lib/risk-math";
 import { calculateTrendAnalysis } from "@/lib/stock-math";
-import { createStockId, loadStocks, saveStocks } from "@/lib/storage";
+import { createStockId, loadStocksWithSafety, saveStocks, type StorageUsageEstimate } from "@/lib/storage";
 import { mergeEarningsCalendarItems } from "@/lib/earningsDeduplication";
 import { mergeNewsItems } from "@/lib/newsDeduplication";
 import {
@@ -515,6 +515,53 @@ function Disclaimer() {
     <InfoAlert tone="warning">
       <p>このアプリは調査補助ツールです。スコアやAI分析は機械的な表示であり、投資判断ではありません。APIキーはlocalStorageや利用ログに保存しません。</p>
       このアプリは調査補助ツールです。スコアやメモの集計は機械的な集計であり、投資判断ではありません。
+    </InfoAlert>
+  );
+}
+
+function formatStorageBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  }
+
+  return `${Math.round(bytes / 1024)} KB`;
+}
+
+function StorageSafetyNotice({
+  autoSaveBlocked,
+  notice,
+}: {
+  autoSaveBlocked: boolean;
+  notice: {
+    loadMessage?: string;
+    saveMessage?: string;
+    rawBackupKey?: string;
+    rawContainsSensitivePattern?: boolean;
+    usage?: StorageUsageEstimate;
+  };
+}) {
+  const shouldShowUsage = notice.usage && notice.usage.warningLevel !== "normal";
+  if (!autoSaveBlocked && !notice.loadMessage && !notice.saveMessage && !shouldShowUsage) {
+    return null;
+  }
+
+  const tone = autoSaveBlocked || notice.saveMessage || notice.usage?.warningLevel === "danger" ? "danger" : "warning";
+
+  return (
+    <InfoAlert tone={tone} testId="storage-safety-notice">
+      <div className="grid gap-2">
+        <p className="font-black">localStorageの安全確認が必要です</p>
+        {notice.loadMessage ? <p data-testid="storage-load-message">{notice.loadMessage}</p> : null}
+        {notice.saveMessage ? <p data-testid="storage-save-message">{notice.saveMessage}</p> : null}
+        {autoSaveBlocked ? <p data-testid="storage-autosave-blocked">データ保護のため、自動保存を停止しています。バックアップJSONから復元するか、現在のlocalStorageを保存してから対応してください。</p> : null}
+        {notice.rawBackupKey ? <p data-testid="storage-corrupt-backup-key">破損検出時の退避キー: <span className="font-mono">{notice.rawBackupKey}</span></p> : null}
+        {notice.rawContainsSensitivePattern ? <p data-testid="storage-sensitive-warning">退避データにAPIキーらしい文字列が含まれる可能性があります。共有やスクリーンショットに注意してください。</p> : null}
+        {notice.usage ? (
+          <p data-testid="storage-usage-summary">
+            使用量目安: {formatStorageBytes(notice.usage.totalBytes)} / stocksキー {formatStorageBytes(notice.usage.stocksBytes)} / 対象キー {notice.usage.keyCount}件。{notice.usage.warningMessage}
+          </p>
+        ) : null}
+      </div>
     </InfoAlert>
   );
 }
@@ -955,6 +1002,14 @@ function TaskView({
 export function StockAnalysisApp() {
   const [isReady, setIsReady] = useState(false);
   const [stocks, setStocks] = useState<StockProfile[]>([]);
+  const [autoSaveBlocked, setAutoSaveBlocked] = useState(false);
+  const [storageNotice, setStorageNotice] = useState<{
+    loadMessage?: string;
+    saveMessage?: string;
+    rawBackupKey?: string;
+    rawContainsSensitivePattern?: boolean;
+    usage?: StorageUsageEstimate;
+  }>({});
   const [view, setView] = useState<View>({ name: "list" });
   const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
   const [sortKey, setSortKey] = useState<SortKey>("total");
@@ -962,13 +1017,28 @@ export function StockAnalysisApp() {
   const [priorityFilter, setPriorityFilter] = useState<"すべて" | ResearchPriority>("すべて");
 
   useEffect(() => {
-    setStocks(loadStocks());
+    const result = loadStocksWithSafety();
+    setStocks(result.stocks);
+    setAutoSaveBlocked(result.shouldBlockAutoSave === true);
+    setStorageNotice({
+      loadMessage: result.ok ? result.warning : result.error,
+      rawBackupKey: result.rawBackupKey,
+      rawContainsSensitivePattern: result.rawContainsSensitivePattern,
+      usage: result.usage,
+    });
     setIsReady(true);
   }, []);
 
   useEffect(() => {
-    if (isReady) saveStocks(stocks);
-  }, [isReady, stocks]);
+    if (!isReady || autoSaveBlocked) return;
+
+    const result = saveStocks(stocks);
+    setStorageNotice((current) => ({
+      ...current,
+      saveMessage: result.ok ? undefined : result.message,
+      usage: result.ok ? result.usage : current.usage,
+    }));
+  }, [autoSaveBlocked, isReady, stocks]);
 
   const listRows = useMemo<ListRow[]>(() => {
     const rows = buildListRows(stocks).filter((row) => {
@@ -1418,5 +1488,12 @@ export function StockAnalysisApp() {
   else if (view.name === "researchMemo") content = stocks.length === 0 ? <FormView onCancel={() => setView({ name: "list" })} onSubmit={handleSubmitStock} /> : <ResearchMemoView stocks={stocks} initialStockId={selectedStock?.id ?? stocks[0]?.id} onBack={() => setView({ name: "list" })} onSave={saveResearchMemo} onDelete={deleteResearchMemo} />;
   else if (view.name === "tasks") content = stocks.length === 0 ? <FormView onCancel={() => setView({ name: "list" })} onSubmit={handleSubmitStock} /> : <TaskView stocks={stocks} initialStockId={selectedStock?.id ?? view.stockId ?? stocks[0]?.id} onBack={() => setView({ name: "list" })} onSave={saveTask} onUpdate={updateTask} onDelete={deleteTask} />;
   else content = <StockListView rows={listRows} sortDirection={sortDirection} sortKey={sortKey} statusFilter={statusFilter} priorityFilter={priorityFilter} onToggleSort={() => setSortDirection((current) => current === "desc" ? "asc" : "desc")} onSetSortKey={setSortKey} onSetStatusFilter={setStatusFilter} onSetPriorityFilter={setPriorityFilter} onCreate={() => setView({ name: "edit" })} onEdit={(stockId) => setView({ name: "edit", stockId })} onDetail={(stockId) => setView({ name: "detail", stockId })} onPriceImport={(stockId) => setView({ name: "priceImport", stockId })} onEarnings={(stockId) => setView({ name: "earnings", stockId })} onWatch={(stockId) => setView({ name: "watch", stockId })} onEarningsMemo={(stockId) => setView({ name: "earningsMemo", stockId })} onRisk={(stockId) => setView({ name: "risk", stockId })} onResearchMemo={(stockId) => setView({ name: "researchMemo", stockId })} onTasks={(stockId) => setView({ name: "tasks", stockId })} onAiHistory={() => setView({ name: "aiHistory" })} onSettings={() => setView({ name: "settings" })} onDelete={handleDeleteStock} />;
-  return <AppShell>{content}</AppShell>;
+  return (
+    <AppShell>
+      <div className="grid gap-4">
+        <StorageSafetyNotice autoSaveBlocked={autoSaveBlocked} notice={storageNotice} />
+        {content}
+      </div>
+    </AppShell>
+  );
 }
