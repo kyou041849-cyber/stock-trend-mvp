@@ -89,12 +89,26 @@ function LlmConfigValue({
 
 function getBackupKeys(): string[] {
   if (typeof window === "undefined") return [];
-  return listStockTrendLocalStorageKeys(window.localStorage);
+  try {
+    return listStockTrendLocalStorageKeys(window.localStorage);
+  } catch {
+    return [];
+  }
 }
 
 function getStorageUsage(): StorageUsageEstimate | null {
   if (typeof window === "undefined") return null;
-  return estimateStockTrendLocalStorageUsage(window.localStorage);
+  try {
+    return estimateStockTrendLocalStorageUsage(window.localStorage);
+  } catch {
+    return {
+      keyCount: 0,
+      totalBytes: 0,
+      stocksBytes: 0,
+      warningLevel: "warning",
+      warningMessage: "localStorageにアクセスできないため、使用量を確認できません。ブラウザ設定を確認してください。",
+    };
+  }
 }
 
 function formatStorageBytes(bytes: number): string {
@@ -139,7 +153,13 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
   };
   const handleBackupDownload = () => {
     if (typeof window === "undefined") return;
-    const result = createLocalStorageBackup(window.localStorage);
+    let result: ReturnType<typeof createLocalStorageBackup>;
+    try {
+      result = createLocalStorageBackup(window.localStorage);
+    } catch {
+      setBackupMessage("localStorageにアクセスできないためバックアップを作成できません。ブラウザ設定を確認してください。");
+      return;
+    }
     refreshBackupKeys();
     setBackupMessage(result.message);
     if (!result.ok) return;
@@ -166,7 +186,13 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
   };
   const handleRestore = () => {
     if (typeof window === "undefined" || !restorePreview?.ok || !restoreConfirmed) return;
-    const result = restoreLocalStorageBackup(window.localStorage, restorePreview.payload);
+    let result: ReturnType<typeof restoreLocalStorageBackup>;
+    try {
+      result = restoreLocalStorageBackup(window.localStorage, restorePreview.payload);
+    } catch {
+      setRestoreMessage("localStorageにアクセスできないため復元できません。ブラウザ設定を確認してください。");
+      return;
+    }
     setRestoreMessage(result.message);
     refreshBackupKeys();
   };
