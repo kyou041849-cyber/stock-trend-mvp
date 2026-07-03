@@ -1,5 +1,5 @@
 import { apiDataSource, apiPlannedDataSource, csvDataSource, manualDataSource, mockApiDataSource, normalizeDataSource } from "./dataSource";
-import { findSensitiveBackupEntries, STOCK_TREND_LOCAL_STORAGE_PREFIX, type LocalStorageLike } from "./localStorageBackup";
+import { CORRUPT_STOCKS_BACKUP_KEY_PREFIX, findSensitiveBackupEntries, STOCK_TREND_LOCAL_STORAGE_PREFIX, type LocalStorageLike } from "./localStorageBackup";
 import { sortEarningsRows } from "./growth-math";
 import {
   inferCurrency,
@@ -42,7 +42,7 @@ import type {
 } from "./types";
 
 export const STOCKS_STORAGE_KEY = "stock-trend-mvp:stocks:v1";
-export const STOCKS_CORRUPT_BACKUP_PREFIX = "stock-trend-mvp:stocks:corrupt:";
+export const STOCKS_CORRUPT_BACKUP_PREFIX = CORRUPT_STOCKS_BACKUP_KEY_PREFIX;
 const STOCKS_CORRUPT_BACKUP_LIMIT = 3;
 const STORAGE_WARNING_BYTES = 3 * 1024 * 1024;
 const STORAGE_DANGER_BYTES = Math.round(4.5 * 1024 * 1024);
@@ -87,6 +87,20 @@ export type SaveStocksResult =
       ok: false;
       message: string;
       reason: "quota-exceeded" | "storage-unavailable" | "serialization-error" | "unknown";
+    };
+
+export type ResumeAutoSaveResult =
+  | {
+      ok: true;
+      shouldUnblockAutoSave: true;
+      message: string;
+      saveResult: Extract<SaveStocksResult, { ok: true }>;
+    }
+  | {
+      ok: false;
+      shouldUnblockAutoSave: false;
+      message: string;
+      saveResult: Extract<SaveStocksResult, { ok: false }>;
     };
 
 function isPriceRow(value: unknown): value is PriceRow {
@@ -1027,4 +1041,23 @@ export function saveStocks(stocks: StockProfile[], storage?: LocalStorageLike): 
       reason: "unknown",
     };
   }
+}
+
+export function resumeAutoSaveAfterStorageRecovery(stocks: StockProfile[], storage?: LocalStorageLike): ResumeAutoSaveResult {
+  const saveResult = saveStocks(stocks, storage);
+  if (saveResult.ok) {
+    return {
+      ok: true,
+      shouldUnblockAutoSave: true,
+      message: "現在の銘柄データを保存し、自動保存を再開しました。",
+      saveResult,
+    };
+  }
+
+  return {
+    ok: false,
+    shouldUnblockAutoSave: false,
+    message: saveResult.message,
+    saveResult,
+  };
 }

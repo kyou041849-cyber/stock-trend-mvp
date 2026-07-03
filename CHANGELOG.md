@@ -15,6 +15,9 @@
 - 破損JSON起動のE2E回帰テストを追加
 - 復元実行前に現在のlocalStorage状態を `stock-trend-mvp:restore:pre:<timestamp>` とJSONファイルへ自動退避
 - 復元前スナップショット作成に失敗した場合は、データ保護のため復元を中止
+- 自動保存停止バナーから、確認チェック付きで現在の銘柄データ保存を再開できる導線を追加
+- 破損rawと復元前スナップショットの退避キーを設定画面で一覧・ダウンロード・削除できるように追加
+- 手動バックアップJSONから `stock-trend-mvp:stocks:corrupt:*` と `stock-trend-mvp:restore:pre:*` を除外し、バックアップ肥大化を防止
 
 ## beta-0.1.0 - β版初期タグ
 

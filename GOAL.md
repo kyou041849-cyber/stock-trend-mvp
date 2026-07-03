@@ -19,7 +19,7 @@ stock-trend-mvp のベータ版開始時点を、Gitで戻せる状態にし、�
 
 ## Current Milestone
 
-G014a: 復元前自動スナップショット + 文言修正。
+G014b: localStorage復帰導線UI + 退避データ管理。
 
 ## Root Done Evidence
 
@@ -75,6 +75,7 @@ G014a: 復元前自動スナップショット + 文言修正。
 | G013 | accepted | manager | codex-verifiable | G012 merged to main | none | localStorageデータ消失経路の封鎖 | local validation, PR #8, and GitHub Actions CI succeeded; main merge remains human | [goals/G013_LOCALSTORAGE_SAFETY.md](goals/G013_LOCALSTORAGE_SAFETY.md) |
 | G013.1 | accepted | manager | codex-verifiable | G013 merged to main | none | localStorage安全性の仕上げ | local validation, PR #9, and GitHub Actions CI succeeded; main merge remains human | [goals/G013_1_LOCALSTORAGE_POLISH.md](goals/G013_1_LOCALSTORAGE_POLISH.md) |
 | G014a | accepted | manager | codex-verifiable | G013.1 merged to main | none | 復元前自動スナップショット + 文言修正 | local validation, PR #10, and GitHub Actions CI succeeded; main merge remains human | [goals/G014A_RESTORE_SNAPSHOT.md](goals/G014A_RESTORE_SNAPSHOT.md) |
+| G014b | in-progress | manager | codex-verifiable | G014a merged to main | none | localStorage復帰導線UI + 退避データ管理 | implementation and validation in progress; PR pending | [goals/G014B_RECOVERY_UI.md](goals/G014B_RECOVERY_UI.md) |
 
 ## Human-Needed Queue / Checkpoints
 
@@ -705,3 +706,32 @@ Goal map note:
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
 | G014a | accepted | manager | codex-verifiable | G013.1 merged to main | 復元前自動スナップショット + 文言修正 | local validation, PR #10, and GitHub Actions CI succeeded; main merge remains human |
+
+## G014b Recovery UI Update
+
+Status: local-validation-complete, PR pending
+
+Outcome target: 自動保存停止状態からUI操作だけで安全に保存を再開でき、破損raw・復元前スナップショットの退避キーを設定画面で管理できるようにする。
+
+Implementation:
+
+- Add confirmation-gated save resume action to the storage safety banner.
+- Keep resume action hidden when localStorage is unavailable.
+- Download current `stock-trend-mvp:stocks:v1` raw before resume when no corrupt backup key exists.
+- Add SettingsView evacuation management for `stock-trend-mvp:stocks:corrupt:*` and `stock-trend-mvp:restore:pre:*`.
+- Allow evacuated key download and confirm-gated delete, scoped only to the selected evacuation key.
+- Exclude corrupt and pre-restore keys from manual localStorage backup JSON.
+
+Validation:
+
+- `pnpm run typecheck`: success
+- `pnpm run test`: success
+- `pnpm run build`: success
+- `pnpm run test:e2e -- --reporter=line`: success, 5 passed
+- API key / secret scan: no real API key found; hits are env var names, docs, existing server-side adapters, test fake values, and `risk-` / `task-` false positives
+
+Goal map note:
+
+| ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
+|---|---|---|---|---|---|---|
+| G014b | in-progress | manager | codex-verifiable | G014a merged to main | localStorage復帰導線UI + 退避データ管理 | local validation succeeded; PR pending |

@@ -59,9 +59,13 @@ import {
   sortAiHistoryRows,
 } from "../src/lib/llmHistory";
 import {
+  LOCAL_STORAGE_BACKUP_EXCLUDED_PREFIXES,
   LOCAL_STORAGE_BACKUP_SCHEMA_VERSION,
+  PRE_RESTORE_SNAPSHOT_KEY_PREFIX,
   createLocalStorageBackup,
   createPreRestoreLocalStorageSnapshot,
+  deleteEvacuatedLocalStorageEntry,
+  listEvacuatedLocalStorageEntries,
   listStockTrendLocalStorageKeys,
   parseLocalStorageBackupJson,
   restoreLocalStorageBackup,
@@ -139,6 +143,7 @@ import {
   STOCKS_STORAGE_KEY,
   estimateStockTrendLocalStorageUsage,
   loadStocksWithSafety,
+  resumeAutoSaveAfterStorageRecovery,
   saveStocks,
 } from "../src/lib/storage";
 import { generateMockLlmAnalysis, generateRealLlmAnalysis } from "../src/services/llmService";
@@ -713,6 +718,23 @@ async function run(): Promise<void> {
     assert.equal(savedStocks.usage?.keyCount, 1);
   }
 
+  const resumeStorage = createMemoryStorage({
+    [STOCKS_STORAGE_KEY]: "{ broken json",
+  });
+  const resumeResult = resumeAutoSaveAfterStorageRecovery([storageStock], resumeStorage);
+  assert.equal(resumeResult.ok, true);
+  assert.equal(resumeResult.shouldUnblockAutoSave, true);
+  assert.doesNotThrow(() => JSON.parse(resumeStorage.getItem(STOCKS_STORAGE_KEY) ?? ""));
+  assert.equal(JSON.parse(resumeStorage.getItem(STOCKS_STORAGE_KEY) ?? "[]")[0].ticker, storageStock.ticker);
+
+  const blockedResumeStorage = createMemoryStorage();
+  blockedResumeStorage.setItem = () => {
+    throw Object.assign(new Error("quota"), { name: "QuotaExceededError", code: 22 });
+  };
+  const blockedResumeResult = resumeAutoSaveAfterStorageRecovery([storageStock], blockedResumeStorage);
+  assert.equal(blockedResumeResult.ok, false);
+  assert.equal(blockedResumeResult.shouldUnblockAutoSave, false);
+
   const corruptStorage = createMemoryStorage({
     [STOCKS_STORAGE_KEY]: "{ bad json",
   });
@@ -1285,6 +1307,42 @@ async function run(): Promise<void> {
   assert.equal(backup.json.includes("other-app:key"), false);
   assert.equal(backup.json.includes("should-not-export"), false);
   assert.equal(backup.json.includes("SECRET_API_KEY"), false);
+
+  const evacuationStorage = createMemoryStorage({
+    [STOCKS_STORAGE_KEY]: "active-stocks",
+    [`${STOCKS_CORRUPT_BACKUP_PREFIX}20260101000000`]: "corrupt-raw",
+    [`${PRE_RESTORE_SNAPSHOT_KEY_PREFIX}20260102000000`]: "pre-restore-json",
+    "stock-trend-mvp:llm-outputs:v1": "llm-data",
+    "other-app:key": "outside",
+  });
+  const evacuatedEntries = listEvacuatedLocalStorageEntries(evacuationStorage);
+  assert.deepEqual(evacuatedEntries.map((entry) => entry.key).sort(), [
+    `${PRE_RESTORE_SNAPSHOT_KEY_PREFIX}20260102000000`,
+    `${STOCKS_CORRUPT_BACKUP_PREFIX}20260101000000`,
+  ]);
+  assert.equal(evacuatedEntries.every((entry) => entry.sizeBytes > 0), true);
+  const deleteEvacuatedResult = deleteEvacuatedLocalStorageEntry(evacuationStorage, `${STOCKS_CORRUPT_BACKUP_PREFIX}20260101000000`);
+  assert.equal(deleteEvacuatedResult.ok, true);
+  assert.equal(evacuationStorage.getItem(`${STOCKS_CORRUPT_BACKUP_PREFIX}20260101000000`), null);
+  assert.equal(evacuationStorage.getItem(STOCKS_STORAGE_KEY), "active-stocks");
+  const deleteStocksResult = deleteEvacuatedLocalStorageEntry(evacuationStorage, STOCKS_STORAGE_KEY);
+  assert.equal(deleteStocksResult.ok, false);
+  assert.equal(evacuationStorage.getItem(STOCKS_STORAGE_KEY), "active-stocks");
+
+  const manualBackupStorage = createMemoryStorage({
+    [STOCKS_STORAGE_KEY]: JSON.stringify([{ id: stock.id, ticker: stock.ticker }]),
+    [`${STOCKS_CORRUPT_BACKUP_PREFIX}20260103000000`]: "corrupt-raw",
+    [`${PRE_RESTORE_SNAPSHOT_KEY_PREFIX}20260104000000`]: "pre-restore-json",
+  });
+  assert.deepEqual(listStockTrendLocalStorageKeys(manualBackupStorage, { excludeKeyPrefixes: LOCAL_STORAGE_BACKUP_EXCLUDED_PREFIXES }), [STOCKS_STORAGE_KEY]);
+  const manualBackup = createLocalStorageBackup(manualBackupStorage, "2026-02-05T00:00:00.000Z", { excludeKeyPrefixes: LOCAL_STORAGE_BACKUP_EXCLUDED_PREFIXES });
+  assert.equal(manualBackup.ok, true);
+  if (!manualBackup.ok) {
+    throw new Error("manual localStorage backup should succeed");
+  }
+  assert.deepEqual(manualBackup.keys, [STOCKS_STORAGE_KEY]);
+  assert.equal(manualBackup.json.includes("corrupt-raw"), false);
+  assert.equal(manualBackup.json.includes("pre-restore-json"), false);
 
   const parsedBackup = parseLocalStorageBackupJson(backup.json);
   assert.equal(parsedBackup.ok, true);
