@@ -6,7 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { Download, List, RefreshCw, Save, Upload } from "lucide-react";
 import { ActionButton as DsActionButton, FormField, InfoAlert, PageHeader, SectionCard, StatusBadge, inputClassName as dsInputClassName } from "@/components/ui/design-system";
 import { loadFundamentalApiSettings, loadStockPriceApiSettings, saveFundamentalApiSettings, saveStockPriceApiSettings } from "@/lib/apiSettings";
-import { createLocalStorageBackup, listStockTrendLocalStorageKeys, parseLocalStorageBackupJson, restoreLocalStorageBackup, type ParsedBackupResult } from "@/lib/localStorageBackup";
+import { createLocalStorageBackup, listStockTrendLocalStorageKeys, parseLocalStorageBackupJson, restoreLocalStorageBackupWithPreSnapshot, type ParsedBackupResult } from "@/lib/localStorageBackup";
 import { estimateStockTrendLocalStorageUsage, type StorageUsageEstimate } from "@/lib/storage";
 import { checkFundamentalApiConnection } from "@/services/fundamentalUpdateService";
 import { checkStockPriceApiConnection } from "@/services/stockPriceUpdateService";
@@ -119,6 +119,18 @@ function formatStorageBytes(bytes: number): string {
   return `${Math.round(bytes / 1024)} KB`;
 }
 
+function downloadJsonFile(json: string, fileName: string): void {
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function SettingsView({ onBack }: { onBack: () => void }) {
   const [settings, setSettings] = useState<StockPriceApiSettings>(() => loadStockPriceApiSettings());
   const [fundamentalSettings, setFundamentalSettings] = useState<FundamentalApiSettings>(() => loadFundamentalApiSettings());
@@ -164,16 +176,8 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
     setBackupMessage(result.message);
     if (!result.ok) return;
 
-    const blob = new Blob([result.json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
     const stamp = result.payload.createdAt.replace(/[-:T]/g, "").slice(0, 12);
-    link.href = url;
-    link.download = `stock-trend-mvp-localStorage-backup-${stamp}.json`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    downloadJsonFile(result.json, `stock-trend-mvp-localStorage-backup-${stamp}.json`);
   };
   const handleRestoreFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     setRestoreConfirmed(false);
@@ -186,13 +190,25 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
   };
   const handleRestore = () => {
     if (typeof window === "undefined" || !restorePreview?.ok || !restoreConfirmed) return;
-    let result: ReturnType<typeof restoreLocalStorageBackup>;
+    let result: ReturnType<typeof restoreLocalStorageBackupWithPreSnapshot>;
     try {
-      result = restoreLocalStorageBackup(window.localStorage, restorePreview.payload);
+      result = restoreLocalStorageBackupWithPreSnapshot(window.localStorage, restorePreview.payload);
     } catch {
       setRestoreMessage("localStorageにアクセスできないため復元できません。ブラウザ設定を確認してください。");
       return;
     }
+
+    if (result.preRestoreSnapshot.ok) {
+      const stamp = result.preRestoreSnapshot.payload.createdAt.replace(/[-:T]/g, "").slice(0, 12);
+      try {
+        downloadJsonFile(result.preRestoreSnapshot.json, `stock-trend-mvp-pre-restore-${stamp}.json`);
+      } catch {
+        setRestoreMessage(`${result.message} ただし、ダウンロードJSONの作成に失敗しました。restore:pre キーの退避は確認してください。`);
+        refreshBackupKeys();
+        return;
+      }
+    }
+
     setRestoreMessage(result.message);
     refreshBackupKeys();
   };
@@ -347,7 +363,7 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
           </div>
           <div className="rounded-lg border border-line bg-slate-50 p-4">
             <h2 className="text-base font-bold text-ink">復元</h2>
-            <p className="mt-1 text-sm font-semibold text-slate-600">復元は上書き方式です。対象キーを確認し、チェックを入れた場合だけ実行できます。</p>
+            <p className="mt-1 text-sm font-semibold text-slate-600">復元は上書き方式です。実行前に現在の状態を自動退避し、対象キーを確認してチェックを入れた場合だけ実行できます。</p>
             <Field label="バックアップJSON">
               <input data-testid="restore-local-storage-file" type="file" accept="application/json,.json" className={inputClassName()} onChange={handleRestoreFileChange} />
             </Field>

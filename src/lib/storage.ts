@@ -846,7 +846,7 @@ function quarantineCorruptStocksRaw(storage: LocalStorageLike, raw: string): {
   return { rawContainsSensitivePattern };
 }
 
-function resolveLocalStorage(storage?: LocalStorageLike): {
+function resolveLocalStorage(storage?: LocalStorageLike, accessMode: "read" | "write" = "write"): {
   ok: true;
   storage: LocalStorageLike;
 } | {
@@ -869,9 +869,10 @@ function resolveLocalStorage(storage?: LocalStorageLike): {
   try {
     return { ok: true, storage: window.localStorage };
   } catch {
+    const verb = accessMode === "read" ? "読み込めません" : "保存できません";
     return {
       ok: false,
-      message: "localStorageにアクセスできないため保存できません。ブラウザのプライバシー設定や権限を確認してください。",
+      message: `localStorageにアクセスできないため${verb}。ブラウザのプライバシー設定や権限を確認してください。`,
       usage: createStorageUnavailableUsage(),
     };
   }
@@ -886,7 +887,7 @@ export function createStockId(): string {
 }
 
 export function loadStocksWithSafety(storage?: LocalStorageLike): LoadStocksResult {
-  const resolvedStorage = resolveLocalStorage(storage);
+  const resolvedStorage = resolveLocalStorage(storage, "read");
   if (!resolvedStorage.ok) {
     return {
       ok: false,
@@ -983,7 +984,7 @@ export function loadStocks(): StockProfile[] {
 }
 
 export function saveStocks(stocks: StockProfile[], storage?: LocalStorageLike): SaveStocksResult {
-  const resolvedStorage = resolveLocalStorage(storage);
+  const resolvedStorage = resolveLocalStorage(storage, "write");
   if (!resolvedStorage.ok) {
     return { ok: false, message: resolvedStorage.message, reason: "storage-unavailable" };
   }
