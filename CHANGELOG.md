@@ -8,8 +8,11 @@
 
 - 銘柄データのJSON破損、非配列形式、正規化できない行を検出した場合に自動保存を停止
 - 破損rawを `stock-trend-mvp:stocks:corrupt:<timestamp>` へ退避
+- 同一rawの破損退避キーは再利用し、退避キーは最大3件に整理
+- localStorageにアクセスできない環境でも画面が壊れないように保護
 - 保存失敗やquota系エラーをUIで通知
 - localStorage使用量の概算を設定画面と警告バナーで確認できるように追加
+- 破損JSON起動のE2E回帰テストを追加
 
 ## beta-0.1.0 - β版初期タグ
 

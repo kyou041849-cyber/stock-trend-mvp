@@ -196,3 +196,31 @@ test("mobile width AI comparison smoke flow does not crash", async ({ page }) =>
   await expect(page.getByTestId("ai-comparison-summary")).toBeVisible();
   await expect(page.getByTestId("toggle-unchanged-diff")).toBeVisible();
 });
+
+test("corrupt stock localStorage startup shows safety notice and preserves raw data", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem("stock-trend-mvp:stocks:v1", "{ broken json");
+  });
+
+  await page.goto("/");
+
+  await expect(page.getByTestId("storage-safety-notice")).toBeVisible();
+  await expect(page.getByTestId("storage-load-message")).toContainText("JSON");
+  await expect(page.getByTestId("storage-autosave-blocked")).toBeVisible();
+
+  const storageState = await page.evaluate(() => {
+    const stockRaw = window.localStorage.getItem("stock-trend-mvp:stocks:v1");
+    const corruptKeys = Object.keys(window.localStorage).filter((key) => key.startsWith("stock-trend-mvp:stocks:corrupt:"));
+    return {
+      stockRaw,
+      corruptKeys,
+      corruptValues: corruptKeys.map((key) => window.localStorage.getItem(key)),
+    };
+  });
+
+  expect(storageState.stockRaw).toBe("{ broken json");
+  expect(storageState.stockRaw).not.toBe("[]");
+  expect(storageState.corruptKeys.length).toBeGreaterThanOrEqual(1);
+  expect(storageState.corruptValues).toContain("{ broken json");
+});

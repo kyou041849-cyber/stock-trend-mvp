@@ -243,10 +243,17 @@ function createMemoryStorage(initial: Record<string, string> = {}) {
     setItem(key: string, value: string) {
       data.set(key, value);
     },
+    removeItem(key: string) {
+      data.delete(key);
+    },
     dump() {
       return Object.fromEntries(data.entries());
     },
   };
+}
+
+function createSecurityError(): Error {
+  return Object.assign(new Error("localStorage blocked"), { name: "SecurityError" });
 }
 
 function loadStockPriceFixture(fileName: string): unknown {
@@ -715,6 +722,24 @@ async function run(): Promise<void> {
   assert.equal(corruptStorage.getItem(STOCKS_STORAGE_KEY), "{ bad json");
   assert.equal(corruptStorage.getItem(corruptLoad.rawBackupKey ?? ""), "{ bad json");
 
+  const duplicateCorruptLoad = loadStocksWithSafety(corruptStorage);
+  assert.equal(duplicateCorruptLoad.ok, false);
+  assert.equal(duplicateCorruptLoad.rawBackupKey, corruptLoad.rawBackupKey);
+  assert.equal(Object.keys(corruptStorage.dump()).filter((key) => key.startsWith(STOCKS_CORRUPT_BACKUP_PREFIX)).length, 1);
+
+  const cappedCorruptStorage = createMemoryStorage({
+    [STOCKS_STORAGE_KEY]: "same broken raw",
+    [`${STOCKS_CORRUPT_BACKUP_PREFIX}20260101000000`]: "old-1",
+    [`${STOCKS_CORRUPT_BACKUP_PREFIX}20260102000000`]: "old-2",
+    [`${STOCKS_CORRUPT_BACKUP_PREFIX}20260103000000`]: "old-3",
+  });
+  const cappedCorruptLoad = loadStocksWithSafety(cappedCorruptStorage);
+  assert.equal(cappedCorruptLoad.ok, false);
+  const cappedKeys = Object.keys(cappedCorruptStorage.dump()).filter((key) => key.startsWith(STOCKS_CORRUPT_BACKUP_PREFIX)).sort();
+  assert.equal(cappedKeys.length, 3);
+  assert.equal(cappedKeys.includes(`${STOCKS_CORRUPT_BACKUP_PREFIX}20260101000000`), false);
+  assert.equal(cappedCorruptStorage.getItem(STOCKS_STORAGE_KEY), "same broken raw");
+
   const nonArrayStorage = createMemoryStorage({
     [STOCKS_STORAGE_KEY]: JSON.stringify({ id: "not-array" }),
   });
@@ -759,6 +784,35 @@ async function run(): Promise<void> {
   assert.equal(quotaSave.ok, false);
   if (!quotaSave.ok) {
     assert.equal(quotaSave.reason, "quota-exceeded");
+  }
+
+  const unavailableStorage = {
+    get length(): number {
+      throw createSecurityError();
+    },
+    key() {
+      throw createSecurityError();
+    },
+    getItem() {
+      throw createSecurityError();
+    },
+    setItem() {
+      throw createSecurityError();
+    },
+  };
+  const unavailableUsage = estimateStockTrendLocalStorageUsage(unavailableStorage);
+  assert.equal(unavailableUsage.keyCount, 0);
+  assert.equal(unavailableUsage.totalBytes, 0);
+  assert.equal(unavailableUsage.warningLevel, "warning");
+  assert.equal(unavailableUsage.warningMessage.includes("localStorageにアクセスできない"), true);
+  const unavailableLoad = loadStocksWithSafety(unavailableStorage);
+  assert.equal(unavailableLoad.ok, false);
+  assert.equal(unavailableLoad.shouldBlockAutoSave, true);
+  assert.equal(unavailableLoad.error.includes("localStorageにアクセスできない"), true);
+  const unavailableSave = saveStocks([storageStock], unavailableStorage);
+  assert.equal(unavailableSave.ok, false);
+  if (!unavailableSave.ok) {
+    assert.equal(unavailableSave.reason, "storage-unavailable");
   }
 
   const usageStorage = createMemoryStorage({

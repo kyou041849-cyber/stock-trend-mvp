@@ -43,6 +43,7 @@ import type {
 
 export const STOCKS_STORAGE_KEY = "stock-trend-mvp:stocks:v1";
 export const STOCKS_CORRUPT_BACKUP_PREFIX = "stock-trend-mvp:stocks:corrupt:";
+const STOCKS_CORRUPT_BACKUP_LIMIT = 3;
 const STORAGE_WARNING_BYTES = 3 * 1024 * 1024;
 const STORAGE_DANGER_BYTES = Math.round(4.5 * 1024 * 1024);
 
@@ -674,6 +675,16 @@ function estimateStringBytes(value: string): number {
   return value.length * 2;
 }
 
+function createStorageUnavailableUsage(): StorageUsageEstimate {
+  return {
+    keyCount: 0,
+    totalBytes: 0,
+    stocksBytes: 0,
+    warningLevel: "warning",
+    warningMessage: "localStorageにアクセスできないため、使用量を確認できません。ブラウザ設定を確認してください。",
+  };
+}
+
 function getStorageUsageWarning(totalBytes: number): Pick<StorageUsageEstimate, "warningLevel" | "warningMessage"> {
   if (totalBytes >= STORAGE_DANGER_BYTES) {
     return {
@@ -700,19 +711,23 @@ export function estimateStockTrendLocalStorageUsage(storage: LocalStorageLike): 
   let stocksBytes = 0;
   let keyCount = 0;
 
-  for (let index = 0; index < storage.length; index += 1) {
-    const key = storage.key(index);
-    if (!key?.startsWith(STOCK_TREND_LOCAL_STORAGE_PREFIX)) {
-      continue;
-    }
+  try {
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (!key?.startsWith(STOCK_TREND_LOCAL_STORAGE_PREFIX)) {
+        continue;
+      }
 
-    const value = storage.getItem(key) ?? "";
-    const bytes = estimateStringBytes(key) + estimateStringBytes(value);
-    keyCount += 1;
-    totalBytes += bytes;
-    if (key === STOCKS_STORAGE_KEY) {
-      stocksBytes = bytes;
+      const value = storage.getItem(key) ?? "";
+      const bytes = estimateStringBytes(key) + estimateStringBytes(value);
+      keyCount += 1;
+      totalBytes += bytes;
+      if (key === STOCKS_STORAGE_KEY) {
+        stocksBytes = bytes;
+      }
     }
+  } catch {
+    return createStorageUnavailableUsage();
   }
 
   return {
@@ -737,18 +752,128 @@ function createCorruptBackupKey(now = new Date()): string {
   return `${STOCKS_CORRUPT_BACKUP_PREFIX}${stamp}`;
 }
 
+function safeGetItem(storage: LocalStorageLike, key: string): string | null {
+  try {
+    return storage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetItem(storage: LocalStorageLike, key: string, value: string): boolean {
+  try {
+    storage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function safeRemoveItem(storage: LocalStorageLike, key: string): void {
+  try {
+    storage.removeItem?.(key);
+  } catch {
+    // The original stocks key is intentionally never modified here.
+  }
+}
+
+function listCorruptBackupKeys(storage: LocalStorageLike): string[] {
+  const keys: string[] = [];
+  try {
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key?.startsWith(STOCKS_CORRUPT_BACKUP_PREFIX)) {
+        keys.push(key);
+      }
+    }
+  } catch {
+    return [];
+  }
+
+  return keys.sort((a, b) => a.localeCompare(b));
+}
+
+function findExistingCorruptBackupKey(storage: LocalStorageLike, raw: string): string | undefined {
+  return listCorruptBackupKeys(storage).find((key) => safeGetItem(storage, key) === raw);
+}
+
+function createUniqueCorruptBackupKey(storage: LocalStorageLike): string {
+  const baseKey = createCorruptBackupKey();
+  if (safeGetItem(storage, baseKey) === null) {
+    return baseKey;
+  }
+
+  for (let index = 1; index <= 999; index += 1) {
+    const candidate = `${baseKey}-${index}`;
+    if (safeGetItem(storage, candidate) === null) {
+      return candidate;
+    }
+  }
+
+  return `${baseKey}-${Math.random().toString(16).slice(2)}`;
+}
+
+function pruneCorruptBackupKeys(storage: LocalStorageLike, preserveKey?: string): void {
+  const keys = listCorruptBackupKeys(storage);
+  let removableKeys = keys.filter((key) => key !== preserveKey);
+  let overflow = Math.max(0, keys.length - STOCKS_CORRUPT_BACKUP_LIMIT);
+
+  while (overflow > 0 && removableKeys.length > 0) {
+    const key = removableKeys.shift();
+    if (!key) break;
+    safeRemoveItem(storage, key);
+    overflow -= 1;
+  }
+}
+
 function quarantineCorruptStocksRaw(storage: LocalStorageLike, raw: string): {
   rawBackupKey?: string;
   rawContainsSensitivePattern: boolean;
 } {
   const rawContainsSensitivePattern = findSensitiveBackupEntries({ [STOCKS_STORAGE_KEY]: raw }).length > 0;
-  const rawBackupKey = createCorruptBackupKey();
+  const existingBackupKey = findExistingCorruptBackupKey(storage, raw);
+  if (existingBackupKey) {
+    pruneCorruptBackupKeys(storage, existingBackupKey);
+    return { rawBackupKey: existingBackupKey, rawContainsSensitivePattern };
+  }
+
+  const rawBackupKey = createUniqueCorruptBackupKey(storage);
+  if (safeSetItem(storage, rawBackupKey, raw)) {
+    pruneCorruptBackupKeys(storage, rawBackupKey);
+    return { rawBackupKey, rawContainsSensitivePattern };
+  }
+
+  return { rawContainsSensitivePattern };
+}
+
+function resolveLocalStorage(storage?: LocalStorageLike): {
+  ok: true;
+  storage: LocalStorageLike;
+} | {
+  ok: false;
+  message: string;
+  usage: StorageUsageEstimate;
+} {
+  if (storage) {
+    return { ok: true, storage };
+  }
+
+  if (typeof window === "undefined") {
+    return {
+      ok: false,
+      message: "ブラウザ環境ではないためlocalStorageにアクセスできません。",
+      usage: createStorageUnavailableUsage(),
+    };
+  }
 
   try {
-    storage.setItem(rawBackupKey, raw);
-    return { rawBackupKey, rawContainsSensitivePattern };
+    return { ok: true, storage: window.localStorage };
   } catch {
-    return { rawContainsSensitivePattern };
+    return {
+      ok: false,
+      message: "localStorageにアクセスできないため保存できません。ブラウザのプライバシー設定や権限を確認してください。",
+      usage: createStorageUnavailableUsage(),
+    };
   }
 }
 
@@ -761,19 +886,40 @@ export function createStockId(): string {
 }
 
 export function loadStocksWithSafety(storage?: LocalStorageLike): LoadStocksResult {
-  if (typeof window === "undefined" && !storage) {
-    return { ok: true, stocks: [] };
+  const resolvedStorage = resolveLocalStorage(storage);
+  if (!resolvedStorage.ok) {
+    return {
+      ok: false,
+      stocks: [],
+      error: resolvedStorage.message,
+      shouldBlockAutoSave: true,
+      usage: resolvedStorage.usage,
+      rawContainsSensitivePattern: false,
+    };
   }
 
-  const localStorage = storage ?? window.localStorage;
+  const localStorage = resolvedStorage.storage;
   const usage = estimateStockTrendLocalStorageUsage(localStorage);
+  let raw: string | null;
 
   try {
-    const raw = localStorage.getItem(STOCKS_STORAGE_KEY);
-    if (!raw) {
-      return { ok: true, stocks: getSampleStocks(), usage };
-    }
+    raw = localStorage.getItem(STOCKS_STORAGE_KEY);
+  } catch {
+    return {
+      ok: false,
+      stocks: [],
+      error: "localStorageにアクセスできないため銘柄データを読み込めません。ブラウザのプライバシー設定や権限を確認してください。",
+      shouldBlockAutoSave: true,
+      usage,
+      rawContainsSensitivePattern: false,
+    };
+  }
 
+  if (!raw) {
+    return { ok: true, stocks: getSampleStocks(), usage };
+  }
+
+  try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) {
       const quarantine = quarantineCorruptStocksRaw(localStorage, raw);
@@ -819,7 +965,6 @@ export function loadStocksWithSafety(storage?: LocalStorageLike): LoadStocksResu
 
     return { ok: true, stocks: normalized, usage };
   } catch {
-    const raw = localStorage.getItem(STOCKS_STORAGE_KEY);
     const quarantine = raw ? quarantineCorruptStocksRaw(localStorage, raw) : { rawContainsSensitivePattern: false };
     return {
       ok: false,
@@ -838,11 +983,12 @@ export function loadStocks(): StockProfile[] {
 }
 
 export function saveStocks(stocks: StockProfile[], storage?: LocalStorageLike): SaveStocksResult {
-  if (typeof window === "undefined" && !storage) {
-    return { ok: false, message: "ブラウザ環境ではないため保存できません。", reason: "storage-unavailable" };
+  const resolvedStorage = resolveLocalStorage(storage);
+  if (!resolvedStorage.ok) {
+    return { ok: false, message: resolvedStorage.message, reason: "storage-unavailable" };
   }
 
-  const localStorage = storage ?? window.localStorage;
+  const localStorage = resolvedStorage.storage;
   let serialized: string;
   try {
     serialized = JSON.stringify(stocks);
@@ -863,6 +1009,14 @@ export function saveStocks(stocks: StockProfile[], storage?: LocalStorageLike): 
         ok: false,
         message: "localStorageの容量上限に近いため、銘柄データを保存できませんでした。バックアップJSONを保存し、古い履歴の整理を検討してください。",
         reason: "quota-exceeded",
+      };
+    }
+
+    if ((error as { name?: string } | null)?.name === "SecurityError") {
+      return {
+        ok: false,
+        message: "localStorageにアクセスできないため保存できません。ブラウザのプライバシー設定や権限を確認してください。",
+        reason: "storage-unavailable",
       };
     }
 

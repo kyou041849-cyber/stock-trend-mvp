@@ -56,6 +56,23 @@ PR / CI:
 - CI run: `28591075215`
 - CI conclusion: `success`
 
+## G013.1 Follow-Up Nits
+
+Independent verification judged PR #8 as "Go with nits". G013.1 addresses the remaining non-blocking safety nits:
+
+- Reuse existing `stock-trend-mvp:stocks:corrupt:*` key when the raw corrupt stocks value is identical.
+- Keep at most 3 corrupt stock raw backup keys, deleting the oldest first when possible.
+- Guard `window.localStorage` access itself so SecurityError-like environments do not crash the app.
+- Add E2E coverage for corrupt stocks JSON startup.
+
+Still not in scope for G013.1:
+
+- "Save current normalized data and resume autosave" UI.
+- Corrupt backup key deletion UI.
+- Backup generation management.
+- Restore diff preview.
+- IndexedDB or server DB migration.
+
 ## Not In Scope
 
 - IndexedDB migration
