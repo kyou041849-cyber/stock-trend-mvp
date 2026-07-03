@@ -2,7 +2,7 @@
 
 ## Status
 
-local-validation-complete, PR pending
+accepted, PR #11 CI succeeded; main merge remains human
 
 ## Outcome
 
@@ -50,5 +50,7 @@ G013〜G014aで保護したlocalStorage破損・復元前退避の仕組みに�
 
 ## PR / CI
 
-- PR: pending
-- CI: pending
+- PR: #11, `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/11`
+- Branch: `codex/g014b-recovery-ui`
+- Commit: `70ecb76 feat: add localStorage recovery UI`
+- CI: GitHub Actions run `28670925039` succeeded
