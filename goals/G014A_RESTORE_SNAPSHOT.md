@@ -2,7 +2,7 @@
 
 ## Status
 
-completed locally, PR pending
+accepted, PR #10 CI succeeded; main merge remains human
 
 ## Background
 
@@ -37,10 +37,12 @@ Local validation:
 - `pnpm run test:e2e -- --reporter=line`: success, 4 passed
 - API key / secret scan: no real key found
 
-Pending:
+PR / CI:
 
-- PR creation
-- PR CI
+- PR: #10, `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/10`
+- Branch: `codex/g014a-restore-snapshot`
+- Commit: `8fd3db4 fix: snapshot localStorage before restore`
+- CI: GitHub Actions run `28641010072` succeeded
 
 ## Human Needed
 

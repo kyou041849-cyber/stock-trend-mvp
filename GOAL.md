@@ -74,7 +74,7 @@ G014a: 復元前自動スナップショット + 文言修正。
 | G012 | accepted | manager | codex-verifiable | G011 merged to main | none | 株価ライブ疎通（Alpha Vantage適合） | local validation, PR #7, and GitHub Actions CI succeeded; live Alpha Vantage smoke remains human-needed | [goals/G012_ALPHAVANTAGE_LIVE.md](goals/G012_ALPHAVANTAGE_LIVE.md) |
 | G013 | accepted | manager | codex-verifiable | G012 merged to main | none | localStorageデータ消失経路の封鎖 | local validation, PR #8, and GitHub Actions CI succeeded; main merge remains human | [goals/G013_LOCALSTORAGE_SAFETY.md](goals/G013_LOCALSTORAGE_SAFETY.md) |
 | G013.1 | accepted | manager | codex-verifiable | G013 merged to main | none | localStorage安全性の仕上げ | local validation, PR #9, and GitHub Actions CI succeeded; main merge remains human | [goals/G013_1_LOCALSTORAGE_POLISH.md](goals/G013_1_LOCALSTORAGE_POLISH.md) |
-| G014a | in-progress | manager | codex-verifiable | G013.1 merged to main | none | 復元前自動スナップショット + 文言修正 | local validation succeeded; PR and CI pending | [goals/G014A_RESTORE_SNAPSHOT.md](goals/G014A_RESTORE_SNAPSHOT.md) |
+| G014a | accepted | manager | codex-verifiable | G013.1 merged to main | none | 復元前自動スナップショット + 文言修正 | local validation, PR #10, and GitHub Actions CI succeeded; main merge remains human | [goals/G014A_RESTORE_SNAPSHOT.md](goals/G014A_RESTORE_SNAPSHOT.md) |
 
 ## Human-Needed Queue / Checkpoints
 
@@ -672,7 +672,7 @@ Goal map note:
 
 ## G014a Restore Pre-Snapshot Update
 
-Status: completed locally, PR pending
+Status: accepted, PR #10 CI succeeded; main merge remains human
 
 Outcome target: 復元実行直前に現在の `stock-trend-mvp:` localStorage状態を自動退避し、誤復元時に直前状態へ戻せるようにする。あわせて、localStorage unavailable時の読み込み/保存文言を分離する。
 
@@ -693,8 +693,15 @@ Validation:
 - `pnpm run test:e2e -- --reporter=line`: success, 4 passed
 - API key / secret scan: no real API key found
 
+PR / CI:
+
+- PR: #10, `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/10`
+- Branch: `codex/g014a-restore-snapshot`
+- Commit: `8fd3db4 fix: snapshot localStorage before restore`
+- CI: GitHub Actions run `28641010072` succeeded
+
 Goal map note:
 
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
-| G014a | in-progress | manager | codex-verifiable | G013.1 merged to main | 復元前自動スナップショット + 文言修正 | local validation succeeded; PR and CI pending |
+| G014a | accepted | manager | codex-verifiable | G013.1 merged to main | 復元前自動スナップショット + 文言修正 | local validation, PR #10, and GitHub Actions CI succeeded; main merge remains human |
