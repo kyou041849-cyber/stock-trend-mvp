@@ -13,6 +13,8 @@
 - 保存失敗やquota系エラーをUIで通知
 - localStorage使用量の概算を設定画面と警告バナーで確認できるように追加
 - 破損JSON起動のE2E回帰テストを追加
+- 復元実行前に現在のlocalStorage状態を `stock-trend-mvp:restore:pre:<timestamp>` とJSONファイルへ自動退避
+- 復元前スナップショット作成に失敗した場合は、データ保護のため復元を中止
 
 ## beta-0.1.0 - β版初期タグ
 

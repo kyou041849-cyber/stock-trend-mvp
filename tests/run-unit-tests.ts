@@ -61,9 +61,11 @@ import {
 import {
   LOCAL_STORAGE_BACKUP_SCHEMA_VERSION,
   createLocalStorageBackup,
+  createPreRestoreLocalStorageSnapshot,
   listStockTrendLocalStorageKeys,
   parseLocalStorageBackupJson,
   restoreLocalStorageBackup,
+  restoreLocalStorageBackupWithPreSnapshot,
 } from "../src/lib/localStorageBackup";
 import {
   extractMarketApiMessage,
@@ -809,10 +811,12 @@ async function run(): Promise<void> {
   assert.equal(unavailableLoad.ok, false);
   assert.equal(unavailableLoad.shouldBlockAutoSave, true);
   assert.equal(unavailableLoad.error.includes("localStorageにアクセスできない"), true);
+  assert.equal(unavailableLoad.error.includes("読み込めません"), true);
   const unavailableSave = saveStocks([storageStock], unavailableStorage);
   assert.equal(unavailableSave.ok, false);
   if (!unavailableSave.ok) {
     assert.equal(unavailableSave.reason, "storage-unavailable");
+    assert.equal(unavailableSave.message.includes("保存できません"), true);
   }
 
   const usageStorage = createMemoryStorage({
@@ -1318,6 +1322,51 @@ async function run(): Promise<void> {
   assert.equal(restoreResult.ok, true);
   assert.equal(restoreStorage.getItem("stock-trend-mvp:stocks:v1"), backup.payload.entries["stock-trend-mvp:stocks:v1"]);
   assert.equal(restoreStorage.getItem("other-app:key"), null);
+
+  const preRestoreStorage = createMemoryStorage({
+    "stock-trend-mvp:stocks:v1": "current-stock-data",
+    "stock-trend-mvp:watchlist:v1": "current-watchlist-data",
+    "stock-trend-mvp:restore:pre:20260101000000": "old-pre-restore-snapshot",
+    "stock-trend-mvp:restore:pre:20260102000000": "newer-pre-restore-snapshot",
+    "other-app:key": "outside-app",
+  });
+  const preRestoreSnapshot = createPreRestoreLocalStorageSnapshot(preRestoreStorage, "2026-02-06T12:34:56.000Z");
+  assert.equal(preRestoreSnapshot.ok, true);
+  if (!preRestoreSnapshot.ok) {
+    throw new Error("pre-restore snapshot should succeed");
+  }
+  assert.equal(preRestoreSnapshot.key, "stock-trend-mvp:restore:pre:20260206123456");
+  const preRestoreKeys = Object.keys(preRestoreStorage.dump()).filter((key) => key.startsWith("stock-trend-mvp:restore:pre:")).sort();
+  assert.deepEqual(preRestoreKeys, ["stock-trend-mvp:restore:pre:20260206123456"]);
+  const preRestorePayload = JSON.parse(preRestoreSnapshot.json) as { entries: Record<string, string>; keys: string[] };
+  assert.deepEqual(preRestorePayload.keys.sort(), ["stock-trend-mvp:stocks:v1", "stock-trend-mvp:watchlist:v1"]);
+  assert.equal(preRestorePayload.entries["stock-trend-mvp:stocks:v1"], "current-stock-data");
+  assert.equal(JSON.stringify(preRestorePayload).includes("restore:pre"), false);
+  assert.equal(JSON.stringify(preRestorePayload).includes("outside-app"), false);
+
+  const restoreWithSnapshotStorage = createMemoryStorage({
+    "stock-trend-mvp:stocks:v1": "before-restore",
+  });
+  const restoreWithSnapshot = restoreLocalStorageBackupWithPreSnapshot(restoreWithSnapshotStorage, parsedBackup.payload, "2026-02-07T00:00:00.000Z");
+  assert.equal(restoreWithSnapshot.ok, true);
+  assert.equal(restoreWithSnapshot.preRestoreSnapshot?.ok, true);
+  assert.equal(restoreWithSnapshotStorage.getItem("stock-trend-mvp:stocks:v1"), backup.payload.entries["stock-trend-mvp:stocks:v1"]);
+  assert.equal(restoreWithSnapshot.message.includes("復元前の状態は"), true);
+
+  const blockedRestoreStorage = createMemoryStorage({
+    "stock-trend-mvp:stocks:v1": "must-not-change",
+  });
+  const originalBlockedSetItem = blockedRestoreStorage.setItem.bind(blockedRestoreStorage);
+  blockedRestoreStorage.setItem = (key: string, value: string) => {
+    if (key.startsWith("stock-trend-mvp:restore:pre:")) {
+      throw Object.assign(new Error("quota"), { name: "QuotaExceededError", code: 22 });
+    }
+    originalBlockedSetItem(key, value);
+  };
+  const blockedRestore = restoreLocalStorageBackupWithPreSnapshot(blockedRestoreStorage, parsedBackup.payload, "2026-02-07T01:00:00.000Z");
+  assert.equal(blockedRestore.ok, false);
+  assert.equal(blockedRestore.message.includes("復元を中止"), true);
+  assert.equal(blockedRestoreStorage.getItem("stock-trend-mvp:stocks:v1"), "must-not-change");
 
   const duplicateNews = makeNews(1, stock);
   const newsMerge = mergeNewsItems([duplicateNews], [{ ...duplicateNews, id: "news-duplicate" }]);
