@@ -3,10 +3,20 @@
 import { useEffect, useState } from "react";
 import type React from "react";
 import type { LucideIcon } from "lucide-react";
-import { Download, List, RefreshCw, Save, Upload } from "lucide-react";
+import { Download, List, RefreshCw, Save, Trash2, Upload } from "lucide-react";
 import { ActionButton as DsActionButton, FormField, InfoAlert, PageHeader, SectionCard, StatusBadge, inputClassName as dsInputClassName } from "@/components/ui/design-system";
 import { loadFundamentalApiSettings, loadStockPriceApiSettings, saveFundamentalApiSettings, saveStockPriceApiSettings } from "@/lib/apiSettings";
-import { createLocalStorageBackup, listStockTrendLocalStorageKeys, parseLocalStorageBackupJson, restoreLocalStorageBackupWithPreSnapshot, type ParsedBackupResult } from "@/lib/localStorageBackup";
+import {
+  LOCAL_STORAGE_BACKUP_EXCLUDED_PREFIXES,
+  createLocalStorageBackup,
+  deleteEvacuatedLocalStorageEntry,
+  listEvacuatedLocalStorageEntries,
+  listStockTrendLocalStorageKeys,
+  parseLocalStorageBackupJson,
+  restoreLocalStorageBackupWithPreSnapshot,
+  type EvacuatedLocalStorageEntry,
+  type ParsedBackupResult,
+} from "@/lib/localStorageBackup";
 import { estimateStockTrendLocalStorageUsage, type StorageUsageEstimate } from "@/lib/storage";
 import { checkFundamentalApiConnection } from "@/services/fundamentalUpdateService";
 import { checkStockPriceApiConnection } from "@/services/stockPriceUpdateService";
@@ -90,7 +100,16 @@ function LlmConfigValue({
 function getBackupKeys(): string[] {
   if (typeof window === "undefined") return [];
   try {
-    return listStockTrendLocalStorageKeys(window.localStorage);
+    return listStockTrendLocalStorageKeys(window.localStorage, { excludeKeyPrefixes: LOCAL_STORAGE_BACKUP_EXCLUDED_PREFIXES });
+  } catch {
+    return [];
+  }
+}
+
+function getEvacuatedEntries(): EvacuatedLocalStorageEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return listEvacuatedLocalStorageEntries(window.localStorage);
   } catch {
     return [];
   }
@@ -135,9 +154,11 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
   const [settings, setSettings] = useState<StockPriceApiSettings>(() => loadStockPriceApiSettings());
   const [fundamentalSettings, setFundamentalSettings] = useState<FundamentalApiSettings>(() => loadFundamentalApiSettings());
   const [backupKeys, setBackupKeys] = useState<string[]>(() => getBackupKeys());
+  const [evacuatedEntries, setEvacuatedEntries] = useState<EvacuatedLocalStorageEntry[]>(() => getEvacuatedEntries());
   const [storageUsage, setStorageUsage] = useState<StorageUsageEstimate | null>(() => getStorageUsage());
   const [backupMessage, setBackupMessage] = useState("");
   const [restoreMessage, setRestoreMessage] = useState("");
+  const [evacuationMessage, setEvacuationMessage] = useState("");
   const [restorePreview, setRestorePreview] = useState<ParsedBackupResult | null>(null);
   const [restoreConfirmed, setRestoreConfirmed] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
@@ -161,13 +182,14 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
   };
   const refreshBackupKeys = () => {
     setBackupKeys(getBackupKeys());
+    setEvacuatedEntries(getEvacuatedEntries());
     setStorageUsage(getStorageUsage());
   };
   const handleBackupDownload = () => {
     if (typeof window === "undefined") return;
     let result: ReturnType<typeof createLocalStorageBackup>;
     try {
-      result = createLocalStorageBackup(window.localStorage);
+      result = createLocalStorageBackup(window.localStorage, new Date().toISOString(), { excludeKeyPrefixes: LOCAL_STORAGE_BACKUP_EXCLUDED_PREFIXES });
     } catch {
       setBackupMessage("localStorageにアクセスできないためバックアップを作成できません。ブラウザ設定を確認してください。");
       return;
@@ -210,6 +232,38 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
     }
 
     setRestoreMessage(result.message);
+    refreshBackupKeys();
+  };
+  const handleEvacuatedDownload = (entry: EvacuatedLocalStorageEntry) => {
+    if (typeof window === "undefined") return;
+    try {
+      const value = window.localStorage.getItem(entry.key);
+      if (value === null) {
+        setEvacuationMessage(`${entry.key} は見つかりませんでした。`);
+        refreshBackupKeys();
+        return;
+      }
+      const payload = JSON.stringify({
+        exportedAt: new Date().toISOString(),
+        key: entry.key,
+        kind: entry.kind,
+        value,
+      }, null, 2);
+      const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 12);
+      const safeKey = entry.key.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 80);
+      downloadJsonFile(payload, `stock-trend-mvp-evacuated-${safeKey}-${stamp}.json`);
+      setEvacuationMessage(`${entry.key} をダウンロードしました。`);
+    } catch {
+      setEvacuationMessage("退避データをダウンロードできませんでした。ブラウザ設定を確認してください。");
+    }
+  };
+  const handleEvacuatedDelete = (entry: EvacuatedLocalStorageEntry) => {
+    if (typeof window === "undefined") return;
+    if (!window.confirm(`${entry.key} を削除します。この操作は該当する退避キーだけを削除し、通常の銘柄データには触れません。`)) {
+      return;
+    }
+    const result = deleteEvacuatedLocalStorageEntry(window.localStorage, entry.key);
+    setEvacuationMessage(result.message);
     refreshBackupKeys();
   };
   const handleSave = () => {
@@ -385,6 +439,39 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
               <Button data-testid="restore-local-storage-backup" icon={Upload} variant="danger" onClick={handleRestore} disabled={!restorePreview?.ok || !restoreConfirmed}>復元を実行</Button>
             </div>
           </div>
+        </div>
+        <div className="mt-4 rounded-lg border border-line bg-slate-50 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold text-ink">退避データ管理</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-600">
+                破損rawと復元前スナップショットは通常バックアップから除外し、ここで個別に確認・保存・削除します。
+              </p>
+            </div>
+            <StatusBadge tone={evacuatedEntries.length > 0 ? "warning" : "neutral"}>{evacuatedEntries.length}件</StatusBadge>
+          </div>
+          {evacuationMessage ? <p data-testid="evacuated-storage-message" className="mt-3 text-sm font-semibold text-slate-700">{evacuationMessage}</p> : null}
+          {evacuatedEntries.length === 0 ? (
+            <p data-testid="evacuated-storage-empty" className="mt-3 text-sm font-semibold text-slate-500">退避データはありません。</p>
+          ) : (
+            <ul data-testid="evacuated-storage-list" className="mt-4 grid gap-2">
+              {evacuatedEntries.map((entry) => (
+                <li key={entry.key} data-testid="evacuated-storage-item" className="grid gap-3 rounded-md border border-line bg-white p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusBadge tone={entry.kind === "corrupt-stocks" ? "danger" : "info"}>{entry.kind === "corrupt-stocks" ? "破損raw" : "復元前"}</StatusBadge>
+                      <span className="text-xs font-bold text-slate-500">{formatStorageBytes(entry.sizeBytes)}</span>
+                    </div>
+                    <p className="mt-2 break-all font-mono text-xs font-semibold text-slate-700">{entry.key}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 md:justify-end">
+                    <Button data-testid="download-evacuated-storage" icon={Download} onClick={() => handleEvacuatedDownload(entry)}>ダウンロード</Button>
+                    <Button data-testid="delete-evacuated-storage" icon={Trash2} variant="danger" onClick={() => handleEvacuatedDelete(entry)}>削除</Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </SectionCard>
       <div className="rounded-lg border border-line bg-white p-5 shadow-panel">

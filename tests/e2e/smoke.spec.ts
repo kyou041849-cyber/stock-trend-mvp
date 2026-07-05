@@ -224,3 +224,39 @@ test("corrupt stock localStorage startup shows safety notice and preserves raw d
   expect(storageState.corruptKeys.length).toBeGreaterThanOrEqual(1);
   expect(storageState.corruptValues).toContain("{ broken json");
 });
+
+test("corrupt stock localStorage can resume saving from the safety banner", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (window.sessionStorage.getItem("stock-trend-mvp-corrupt-seeded") === "1") return;
+    window.localStorage.clear();
+    window.localStorage.setItem("stock-trend-mvp:stocks:v1", "{ broken json");
+    window.sessionStorage.setItem("stock-trend-mvp-corrupt-seeded", "1");
+  });
+
+  await page.goto("/");
+
+  await expect(page.getByTestId("storage-safety-notice")).toBeVisible();
+  await page.getByTestId("resume-autosave-confirm").check();
+  await page.getByTestId("resume-autosave-button").click();
+
+  await expect(page.getByTestId("storage-safety-notice")).toHaveCount(0);
+
+  const resumedStorageState = await page.evaluate(() => {
+    const stockRaw = window.localStorage.getItem("stock-trend-mvp:stocks:v1");
+    const corruptKeys = Object.keys(window.localStorage).filter((key) => key.startsWith("stock-trend-mvp:stocks:corrupt:"));
+    return {
+      stockRaw,
+      parsedIsArray: Array.isArray(JSON.parse(stockRaw ?? "null")),
+      corruptKeys,
+      corruptValues: corruptKeys.map((key) => window.localStorage.getItem(key)),
+    };
+  });
+
+  expect(resumedStorageState.stockRaw).not.toBe("{ broken json");
+  expect(resumedStorageState.parsedIsArray).toBe(true);
+  expect(resumedStorageState.corruptKeys.length).toBeGreaterThanOrEqual(1);
+  expect(resumedStorageState.corruptValues).toContain("{ broken json");
+
+  await page.reload();
+  await expect(page.getByTestId("storage-safety-notice")).toHaveCount(0);
+});

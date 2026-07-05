@@ -1,7 +1,12 @@
 export const STOCK_TREND_LOCAL_STORAGE_PREFIX = "stock-trend-mvp:";
 export const LOCAL_STORAGE_BACKUP_APP_ID = "stock-trend-mvp";
 export const LOCAL_STORAGE_BACKUP_SCHEMA_VERSION = "local-storage-backup-v1";
+export const CORRUPT_STOCKS_BACKUP_KEY_PREFIX = `${STOCK_TREND_LOCAL_STORAGE_PREFIX}stocks:corrupt:`;
 export const PRE_RESTORE_SNAPSHOT_KEY_PREFIX = `${STOCK_TREND_LOCAL_STORAGE_PREFIX}restore:pre:`;
+export const LOCAL_STORAGE_BACKUP_EXCLUDED_PREFIXES = [
+  CORRUPT_STOCKS_BACKUP_KEY_PREFIX,
+  PRE_RESTORE_SNAPSHOT_KEY_PREFIX,
+];
 
 export type LocalStorageLike = {
   readonly length: number;
@@ -76,6 +81,24 @@ export type RestoreWithPreSnapshotResult = RestoreResult & {
   preRestoreSnapshot: PreRestoreSnapshotResult;
 };
 
+export type EvacuatedLocalStorageEntry = {
+  key: string;
+  kind: "corrupt-stocks" | "pre-restore";
+  sizeBytes: number;
+};
+
+export type DeleteEvacuatedLocalStorageEntryResult =
+  | {
+      ok: true;
+      key: string;
+      message: string;
+    }
+  | {
+      ok: false;
+      key: string;
+      message: string;
+    };
+
 type CreateBackupOptions = {
   excludeKeyPrefixes?: string[];
 };
@@ -105,6 +128,65 @@ export function listStockTrendLocalStorageKeys(storage: LocalStorageLike, option
     }
   }
   return keys.sort((a, b) => a.localeCompare(b));
+}
+
+function estimateStorageEntryBytes(key: string, value: string): number {
+  return (key.length + value.length) * 2;
+}
+
+function getEvacuatedEntryKind(key: string): EvacuatedLocalStorageEntry["kind"] | null {
+  if (key.startsWith(CORRUPT_STOCKS_BACKUP_KEY_PREFIX)) return "corrupt-stocks";
+  if (key.startsWith(PRE_RESTORE_SNAPSHOT_KEY_PREFIX)) return "pre-restore";
+  return null;
+}
+
+export function listEvacuatedLocalStorageEntries(storage: LocalStorageLike): EvacuatedLocalStorageEntry[] {
+  return listStockTrendLocalStorageKeys(storage)
+    .map((key) => {
+      const kind = getEvacuatedEntryKind(key);
+      if (!kind) return null;
+      const value = storage.getItem(key) ?? "";
+      return {
+        key,
+        kind,
+        sizeBytes: estimateStorageEntryBytes(key, value),
+      };
+    })
+    .filter((entry): entry is EvacuatedLocalStorageEntry => entry !== null)
+    .sort((a, b) => a.key.localeCompare(b.key));
+}
+
+export function deleteEvacuatedLocalStorageEntry(storage: LocalStorageLike, key: string): DeleteEvacuatedLocalStorageEntryResult {
+  if (!getEvacuatedEntryKind(key)) {
+    return {
+      ok: false,
+      key,
+      message: "退避データ以外のキーは削除できません。",
+    };
+  }
+
+  if (!storage.removeItem) {
+    return {
+      ok: false,
+      key,
+      message: "この環境では退避データを削除できません。",
+    };
+  }
+
+  try {
+    storage.removeItem(key);
+    return {
+      ok: true,
+      key,
+      message: `${key} を削除しました。`,
+    };
+  } catch {
+    return {
+      ok: false,
+      key,
+      message: `${key} を削除できませんでした。ブラウザ設定を確認してください。`,
+    };
+  }
 }
 
 export function findSensitiveBackupEntries(entries: Record<string, string>): string[] {

@@ -89,7 +89,7 @@ import { inferCurrency, inferFinancialUnit, inferMarketRegion, inferPriceUnit, n
 import { parsePriceCsv, type CsvImportResult } from "@/lib/csv";
 import { calculateRiskItemScore, calculateRiskScore, getRiskScoreLabel } from "@/lib/risk-math";
 import { calculateTrendAnalysis } from "@/lib/stock-math";
-import { createStockId, loadStocksWithSafety, saveStocks, type StorageUsageEstimate } from "@/lib/storage";
+import { STOCKS_STORAGE_KEY, createStockId, loadStocksWithSafety, resumeAutoSaveAfterStorageRecovery, saveStocks, type StorageUsageEstimate } from "@/lib/storage";
 import { mergeEarningsCalendarItems } from "@/lib/earningsDeduplication";
 import { mergeNewsItems } from "@/lib/newsDeduplication";
 import {
@@ -527,9 +527,22 @@ function formatStorageBytes(bytes: number): string {
   return `${Math.round(bytes / 1024)} KB`;
 }
 
+function downloadJsonText(json: string, fileName: string): void {
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function StorageSafetyNotice({
   autoSaveBlocked,
   notice,
+  onResumeAutoSave,
 }: {
   autoSaveBlocked: boolean;
   notice: {
@@ -537,9 +550,12 @@ function StorageSafetyNotice({
     saveMessage?: string;
     rawBackupKey?: string;
     rawContainsSensitivePattern?: boolean;
+    storageUnavailable?: boolean;
     usage?: StorageUsageEstimate;
   };
+  onResumeAutoSave?: () => void;
 }) {
+  const [resumeConfirmed, setResumeConfirmed] = useState(false);
   const shouldShowUsage = notice.usage && notice.usage.warningLevel !== "normal";
   if (!autoSaveBlocked && !notice.loadMessage && !notice.saveMessage && !shouldShowUsage) {
     return null;
@@ -556,6 +572,18 @@ function StorageSafetyNotice({
         {autoSaveBlocked ? <p data-testid="storage-autosave-blocked">データ保護のため、自動保存を停止しています。バックアップJSONから復元するか、現在のlocalStorageを保存してから対応してください。</p> : null}
         {notice.rawBackupKey ? <p data-testid="storage-corrupt-backup-key">破損検出時の退避キー: <span className="font-mono">{notice.rawBackupKey}</span></p> : null}
         {notice.rawContainsSensitivePattern ? <p data-testid="storage-sensitive-warning">退避データにAPIキーらしい文字列が含まれる可能性があります。共有やスクリーンショットに注意してください。</p> : null}
+        {autoSaveBlocked && onResumeAutoSave && !notice.storageUnavailable ? (
+          <div className="mt-2 rounded-md border border-red-200 bg-white p-3">
+            <label className="flex items-start gap-2 text-sm font-bold text-ink">
+              <input data-testid="resume-autosave-confirm" type="checkbox" checked={resumeConfirmed} onChange={(event) => setResumeConfirmed(event.target.checked)} />
+              <span>現在画面に読み込まれている銘柄データで保存を再開することを確認しました。</span>
+            </label>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button data-testid="resume-autosave-button" variant="primary" icon={ShieldCheck} disabled={!resumeConfirmed} onClick={onResumeAutoSave}>保存を再開</Button>
+              <p className="text-xs font-semibold text-slate-600">破損rawは退避キーに残し、通常の保存だけ再開します。</p>
+            </div>
+          </div>
+        ) : null}
         {notice.usage ? (
           <p data-testid="storage-usage-summary">
             使用量目安: {formatStorageBytes(notice.usage.totalBytes)} / stocksキー {formatStorageBytes(notice.usage.stocksBytes)} / 対象キー {notice.usage.keyCount}件。{notice.usage.warningMessage}
@@ -1008,6 +1036,7 @@ export function StockAnalysisApp() {
     saveMessage?: string;
     rawBackupKey?: string;
     rawContainsSensitivePattern?: boolean;
+    storageUnavailable?: boolean;
     usage?: StorageUsageEstimate;
   }>({});
   const [view, setView] = useState<View>({ name: "list" });
@@ -1024,6 +1053,7 @@ export function StockAnalysisApp() {
       loadMessage: result.ok ? result.warning : result.error,
       rawBackupKey: result.rawBackupKey,
       rawContainsSensitivePattern: result.rawContainsSensitivePattern,
+      storageUnavailable: !result.ok && result.error.includes("localStorageにアクセスできない"),
       usage: result.usage,
     });
     setIsReady(true);
@@ -1036,9 +1066,48 @@ export function StockAnalysisApp() {
     setStorageNotice((current) => ({
       ...current,
       saveMessage: result.ok ? undefined : result.message,
+      storageUnavailable: result.ok ? current.storageUnavailable : result.reason === "storage-unavailable",
       usage: result.ok ? result.usage : current.usage,
     }));
   }, [autoSaveBlocked, isReady, stocks]);
+
+  const handleResumeAutoSave = () => {
+    if (storageNotice.storageUnavailable) return;
+
+    if (!storageNotice.rawBackupKey) {
+      try {
+        const raw = window.localStorage.getItem(STOCKS_STORAGE_KEY) ?? "";
+        const payload = JSON.stringify({
+          createdAt: new Date().toISOString(),
+          key: STOCKS_STORAGE_KEY,
+          value: raw,
+        }, null, 2);
+        const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 12);
+        downloadJsonText(payload, `stock-trend-mvp-stocks-raw-before-resume-${stamp}.json`);
+      } catch {
+        setStorageNotice((current) => ({
+          ...current,
+          saveMessage: "現在のstocks:v1 rawを退避できなかったため、保存再開を中止しました。ブラウザ設定を確認してください。",
+        }));
+        return;
+      }
+    }
+
+    const result = resumeAutoSaveAfterStorageRecovery(stocks);
+    if (result.ok) {
+      setAutoSaveBlocked(false);
+      setStorageNotice({
+        usage: result.saveResult.usage,
+      });
+      return;
+    }
+
+    setStorageNotice((current) => ({
+      ...current,
+      saveMessage: result.message,
+      storageUnavailable: result.saveResult.reason === "storage-unavailable",
+    }));
+  };
 
   const listRows = useMemo<ListRow[]>(() => {
     const rows = buildListRows(stocks).filter((row) => {
@@ -1491,7 +1560,7 @@ export function StockAnalysisApp() {
   return (
     <AppShell>
       <div className="grid gap-4">
-        <StorageSafetyNotice autoSaveBlocked={autoSaveBlocked} notice={storageNotice} />
+        <StorageSafetyNotice autoSaveBlocked={autoSaveBlocked} notice={storageNotice} onResumeAutoSave={handleResumeAutoSave} />
         {content}
       </div>
     </AppShell>
