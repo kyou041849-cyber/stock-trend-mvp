@@ -455,6 +455,37 @@ PR / CI:
 - CI run: `28361803492`
 - CI conclusion: `success`
 
+## G015 Secret Scan False Positive Update
+
+Status: in progress
+
+Outcome target: prevent backup / restore sensitive-value scanning from treating normal
+`risk-...`, `task-...`, and sample task IDs as OpenAI-style `sk-...` API keys, while
+continuing to detect real `sk-...` style key values.
+
+Implementation:
+
+- Add a word boundary to the `sk-` branch of `SENSITIVE_VALUE_PATTERN`.
+- Keep `OPENAI_API_KEY`, `Bearer`, and `AIza` sensitive-value checks unchanged.
+- Add unit tests for real `sk-...` detection and `risk-` / `task-` false-positive prevention.
+- Add a sample-data backup success test.
+
+Current evidence:
+
+- RED: `pnpm run test` failed before the fix because `risk-1751871234567-a3f9c81b2e4d1` was detected as sensitive.
+- GREEN: `pnpm run test` passed after the regex boundary fix.
+- `pnpm run typecheck`: success
+- `pnpm run test`: success
+- `pnpm run build`: success
+- `pnpm run test:e2e -- --reporter=line`: success, 5 passed
+- API key / secret scan: no real key found; hits are env var names, docs, server-side adapters, and test fake values.
+
+Goal map note:
+
+| ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
+|---|---|---|---|---|---|---|
+| G015 | in-progress | manager | codex-verifiable | G014b merged to main | backup secret scan false-positive fix | local unit red/green observed; full validation, PR, and CI pending |
+
 Goal map note:
 
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
