@@ -457,7 +457,7 @@ PR / CI:
 
 ## G015 Secret Scan False Positive Update
 
-Status: in progress
+Status: accepted, PR #12 CI succeeded; main merge remains human
 
 Outcome target: prevent backup / restore sensitive-value scanning from treating normal
 `risk-...`, `task-...`, and sample task IDs as OpenAI-style `sk-...` API keys, while
@@ -480,11 +480,19 @@ Current evidence:
 - `pnpm run test:e2e -- --reporter=line`: success, 5 passed
 - API key / secret scan: no real key found; hits are env var names, docs, server-side adapters, and test fake values.
 
+PR / CI:
+
+- PR: #12, `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/12`
+- Branch: `codex/g015-secret-scan-false-positive`
+- Commit: `0f667cc fix: tighten sk key detection in backups`
+- CI run: `28870318524`
+- CI conclusion: `success`
+
 Goal map note:
 
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
-| G015 | in-progress | manager | codex-verifiable | G014b merged to main | backup secret scan false-positive fix | local unit red/green observed; full validation, PR, and CI pending |
+| G015 | accepted | manager | codex-verifiable | G014b merged to main | backup secret scan false-positive fix | local validation, PR #12, and GitHub Actions CI succeeded; main merge remains human |
 
 Goal map note:
 

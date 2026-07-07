@@ -2,7 +2,7 @@
 
 ## Status
 
-in progress
+accepted, PR #12 CI succeeded; main merge remains human
 
 ## Outcome
 
@@ -50,5 +50,7 @@ as `sk-...` API keys.
 
 ## PR / CI
 
-- PR: pending
-- CI: pending
+- PR: #12, `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/12`
+- Branch: `codex/g015-secret-scan-false-positive`
+- Commit: `0f667cc fix: tighten sk key detection in backups`
+- CI: GitHub Actions run `28870318524` succeeded
