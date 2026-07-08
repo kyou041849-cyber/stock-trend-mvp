@@ -104,7 +104,7 @@ type CreateBackupOptions = {
 };
 
 const SENSITIVE_KEY_PATTERN = /(api[_-]?key|apikey|authorization|bearer|token|secret|password|openai)/i;
-const SENSITIVE_VALUE_PATTERN = /(sk-[A-Za-z0-9_-]{12,}|OPENAI_API_KEY|Bearer\s+[A-Za-z0-9._-]{12,}|AIza[0-9A-Za-z_-]{20,})/;
+const SENSITIVE_VALUE_PATTERN = /(\bsk-[A-Za-z0-9_-]{12,}|OPENAI_API_KEY|Bearer\s+[A-Za-z0-9._-]{12,}|AIza[0-9A-Za-z_-]{20,})/;
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);

@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- G015: Fix backup sensitive-value scanning so normal app IDs containing `risk-`, `task-`, or `...-task-...` are not mistaken for `sk-` API keys.
+
 ### localStorage安全化
 
 - 銘柄データのJSON破損、非配列形式、正規化できない行を検出した場合に自動保存を停止

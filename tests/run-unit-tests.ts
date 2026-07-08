@@ -65,12 +65,14 @@ import {
   createLocalStorageBackup,
   createPreRestoreLocalStorageSnapshot,
   deleteEvacuatedLocalStorageEntry,
+  findSensitiveBackupEntries,
   listEvacuatedLocalStorageEntries,
   listStockTrendLocalStorageKeys,
   parseLocalStorageBackupJson,
   restoreLocalStorageBackup,
   restoreLocalStorageBackupWithPreSnapshot,
 } from "../src/lib/localStorageBackup";
+import { getSampleStocks } from "../src/lib/sampleData";
 import {
   extractMarketApiMessage,
   extractFundamentalApiRows,
@@ -1372,6 +1374,23 @@ async function run(): Promise<void> {
   });
   const secretBackup = createLocalStorageBackup(secretBackupStorage, "2026-02-05T00:00:00.000Z");
   assert.equal(secretBackup.ok, false);
+  assert.deepEqual(findSensitiveBackupEntries({
+    "stock-trend-mvp:secret-value:v1": JSON.stringify({ value: "sk-abcdefghijklmnop" }),
+  }), ["stock-trend-mvp:secret-value:v1"]);
+  assert.deepEqual(findSensitiveBackupEntries({
+    "stock-trend-mvp:risk-memos:v1": JSON.stringify({ id: "risk-1751871234567-a3f9c81b2e4d1" }),
+  }), []);
+  assert.deepEqual(findSensitiveBackupEntries({
+    "stock-trend-mvp:tasks:v1": JSON.stringify({ id: "task-1751871234567-a3f9c81b2e4d1" }),
+  }), []);
+  assert.deepEqual(findSensitiveBackupEntries({
+    "stock-trend-mvp:sample:v1": JSON.stringify({ id: "sample-jp-7203-task-earnings-check" }),
+  }), []);
+  const sampleBackupStorage = createMemoryStorage({
+    [STOCKS_STORAGE_KEY]: JSON.stringify(getSampleStocks()),
+  });
+  const sampleBackup = createLocalStorageBackup(sampleBackupStorage, "2026-02-05T00:00:00.000Z");
+  assert.equal(sampleBackup.ok, true);
 
   const restoreStorage = createMemoryStorage({
     "stock-trend-mvp:stocks:v1": "old-data",
