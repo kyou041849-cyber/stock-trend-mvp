@@ -2,7 +2,7 @@
 
 ## Status
 
-in progress
+accepted, PR #13 CI succeeded; main merge remains human
 
 ## Outcome
 
@@ -44,8 +44,16 @@ required. Company name, market, and sector are optional and can be left blank.
   `ティッカー（必須）` was not visible.
 - GREEN: `pnpm run test:e2e -- --reporter=line` passed after the UI labels,
   placeholders, and ticker-only registration test were added.
+- `pnpm run typecheck`: success
+- `pnpm run test`: success
+- `pnpm run build`: success
+- `pnpm run test:e2e -- --reporter=line`: success, 6 passed
+- API key / secret scan: no real key found. Hits are environment variable names,
+  docs, existing server-side adapters, and test fake values.
 
 ## PR / CI
 
-- PR: pending
-- CI: pending
+- PR: #13, `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/13`
+- Branch: `codex/g016-stock-form-optional-fields`
+- Commit: `14a3af5 fix: clarify optional stock form fields`
+- CI: GitHub Actions run `29030019800` succeeded
