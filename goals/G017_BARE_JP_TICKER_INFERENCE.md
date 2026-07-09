@@ -2,7 +2,7 @@
 
 ## Status
 
-local validation succeeded, PR and CI pending
+accepted, PR #14 CI succeeded; main merge remains human
 
 ## Outcome
 
@@ -75,4 +75,7 @@ make the stock form market preview feel recoverable instead of showing
 - `pnpm run test:e2e -- --reporter=line`: success, 6 passed
 - API key / secret scan: no real key found. Hits are environment variable
   names, docs, existing server-side adapters, and test fake values.
-- PR and CI are pending.
+- PR: #14, `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/14`
+- Branch: `codex/g017-bare-jp-ticker-inference`
+- Commit: `20589c2 fix: infer bare JP tickers in stock form`
+- CI: GitHub Actions run `29057916443` succeeded
