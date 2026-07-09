@@ -711,6 +711,9 @@ function FormView({
   const [form, setForm] = useState<StockFormState>(() => stockToForm(stock));
   const [error, setError] = useState("");
   const updateField = (field: keyof StockFormState, value: string) => setForm((current) => ({ ...current, [field]: value }));
+  const inferredMarket = form.market.trim() || !form.ticker.trim()
+    ? ""
+    : normalizeMarket("", normalizeTicker(form.ticker)) || "未推定";
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -727,10 +730,13 @@ function FormView({
       <ViewHeader title={stock ? "銘柄編集" : "銘柄登録"} actions={<Button icon={List} onClick={onCancel}>一覧へ</Button>} />
       <form onSubmit={handleSubmit} className="rounded-lg border border-line bg-white p-5 shadow-panel">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="ティッカー"><input data-testid="ticker-input" className={inputClassName("uppercase")} value={form.ticker} onChange={(event) => updateField("ticker", event.target.value.toUpperCase())} /></Field>
-          <Field label="会社名"><input data-testid="company-name-input" className={inputClassName()} value={form.companyName} onChange={(event) => updateField("companyName", event.target.value)} /></Field>
-          <Field label="市場"><input data-testid="market-input" className={inputClassName()} value={form.market} onChange={(event) => updateField("market", event.target.value)} /></Field>
-          <Field label="セクター"><input data-testid="sector-input" className={inputClassName()} value={form.sector} onChange={(event) => updateField("sector", event.target.value)} /></Field>
+          <Field label="ティッカー（必須）"><input data-testid="ticker-input" className={inputClassName("uppercase")} placeholder="例: 7203 / AAPL" value={form.ticker} onChange={(event) => updateField("ticker", event.target.value.toUpperCase())} /></Field>
+          <Field label="会社名（空欄可）"><input data-testid="company-name-input" className={inputClassName()} placeholder="空欄の場合はティッカーを表示名として使用します" value={form.companyName} onChange={(event) => updateField("companyName", event.target.value)} /></Field>
+          <Field label="市場（空欄可）">
+            <input data-testid="market-input" className={inputClassName()} placeholder="空欄で自動推定されます（例: 東証 / NASDAQ）" value={form.market} onChange={(event) => updateField("market", event.target.value)} />
+            {inferredMarket ? <p data-testid="inferred-market-preview" className="text-xs font-semibold text-slate-500">未入力の場合の推定市場: {inferredMarket}</p> : null}
+          </Field>
+          <Field label="セクター（空欄可）"><input data-testid="sector-input" className={inputClassName()} placeholder="空欄でも登録できます（後で編集可能）" value={form.sector} onChange={(event) => updateField("sector", event.target.value)} /></Field>
           <Field label="メモ"><textarea data-testid="memo-input" className={inputClassName("min-h-28 sm:col-span-2")} value={form.memo} onChange={(event) => updateField("memo", event.target.value)} /></Field>
         </div>
         {error ? <p className="mt-4 text-sm font-semibold text-decline">{error}</p> : null}

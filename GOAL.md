@@ -494,6 +494,32 @@ Goal map note:
 |---|---|---|---|---|---|---|
 | G015 | accepted | manager | codex-verifiable | G014b merged to main | backup secret scan false-positive fix | local validation, PR #12, and GitHub Actions CI succeeded; main merge remains human |
 
+## G016 Stock Form Optional Fields Update
+
+Status: in progress
+
+Outcome target: make the stock registration form accurately communicate that only
+the ticker is required, while company name, market, and sector can remain blank.
+
+Implementation:
+
+- Add required wording to the ticker label.
+- Add optional wording and explanatory placeholders to company name, market, and sector.
+- Add a read-only inferred-market preview when ticker is entered and market is blank.
+- Preserve existing submit validation and normalization / inference logic.
+- Add E2E coverage for ticker-only registration.
+
+Current evidence:
+
+- RED: `pnpm run test:e2e -- --reporter=line` failed before the UI fix because `ティッカー（必須）` was not visible.
+- GREEN: `pnpm run test:e2e -- --reporter=line` passed after the UI fix, 6 passed.
+
+Goal map note:
+
+| ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
+|---|---|---|---|---|---|---|
+| G016 | in-progress | manager | codex-verifiable | G015 merged to main | stock form optional-field clarity | E2E red/green observed; full validation, PR, and CI pending |
+
 Goal map note:
 
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
