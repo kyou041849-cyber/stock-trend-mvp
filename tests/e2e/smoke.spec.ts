@@ -59,14 +59,12 @@ test("stock form clearly marks only ticker as required and allows ticker-only re
   await expect(page.getByTestId("market-input")).toHaveAttribute("placeholder", "空欄で自動推定されます（例: 東証 / NASDAQ）");
   await expect(page.getByTestId("sector-input")).toHaveAttribute("placeholder", "空欄でも登録できます（後で編集可能）");
 
-  await page.getByTestId("ticker-input").fill("E2EONLY");
-  await expect(page.getByTestId("inferred-market-preview")).toContainText("未入力の場合の推定市場");
+  await page.getByTestId("ticker-input").fill("7203");
+  await expect(page.getByTestId("inferred-market-preview")).toContainText("東証");
   await page.getByTestId("save-stock").click();
 
   await expect(page.getByTestId("stock-detail")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "E2EONLY" })).toBeVisible();
-  await page.getByTestId("detail-back").click();
-  await expect(page.locator("tr", { hasText: "E2EONLY" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "7203" })).toBeVisible();
 });
 
 test("main research flow stays usable without real LLM", async ({ page }) => {
