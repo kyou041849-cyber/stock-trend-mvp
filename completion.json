@@ -7,9 +7,9 @@
     "category":  "daily_issues",
     "mode":  "local_app",
     "created_at":  "2026-06-14T23:09:46+09:00",
-    "updated_at":  "2026-07-07T00:00:00+09:00",
-    "revision":  18,
-    "summary":  "株価CSV、年度別業績、ウォッチリスト、決算メモ、リスクメモ、AI分析履歴、サーバー側API Route、JP/US実株価データ正規化、Alpha Vantage向け株価APIリクエスト整形、RSI/SMAクロスのモメンタム確認スコア、OpenAI/Chat Completions可変LLM経路、非秘密の実効LLM設定表示、localStorage破損時の自動保存停止・退避・重複抑止・SecurityError保護、復元前自動スナップショット、保存再開UI、退避データ管理、バックアップ機微情報検出のrisk/task系ID誤検出修正を localStorage 中心で扱う銘柄調査補助ローカルWebアプリ。",
+    "updated_at":  "2026-07-10T00:00:00+09:00",
+    "revision":  19,
+    "summary":  "株価CSV、年度別業績、ウォッチリスト、決算メモ、リスクメモ、AI分析履歴、サーバー側API Route、JP/US実株価データ正規化、Alpha Vantage向け株価APIリクエスト整形、RSI/SMAクロスのモメンタム確認スコア、OpenAI/Chat Completions可変LLM経路、非秘密の実効LLM設定表示、localStorage破損時の自動保存停止・退避・重複抑止・SecurityError保護、復元前自動スナップショット、保存再開UI、退避データ管理、バックアップ機微情報検出のrisk/task系ID誤検出修正、ティッカーのみ必須の銘柄登録フォーム表示を localStorage 中心で扱う銘柄調査補助ローカルWebアプリ。",
     "primary_output":  "README.md",
     "html_output":  "",
     "output_files":  [
@@ -21,6 +21,6 @@
     "folder":  "C:\\Users\\kyou0\\Documents\\日常の困りごと\\stock-trend-mvp",
     "parent_request_id":  "",
     "continuation_policy":  "external_daily_issue_project",
-    "verification":  "README.md, package.json, src, scripts の存在を確認。G006で株価/業績APIの実取得をサーバー側Route Handler経由へ統一。G007で日本株/米国株のティッカー・地域・通貨正規化とfixture/stub検証を追加。G008でRSI(14)とSMA25/75クロス参考シグナルを追加。G009でOpenAI Responses後方互換を維持しつつOpenAI互換Chat Completions経路を追加し、typecheck/test/build/E2EとPR #4 CI successで確認した。G010でRSI(14) 50以上とSMA25/75ゴールデンクロスをトレンド強さスコアへ加点する実装を追加し、typecheck/test/build/E2EとPR #5 CI successで確認した。G011で非秘密のLLM設定要約APIと設定画面表示を追加し、typecheck/test/build/E2EとPR #6 CI successで確認した。G012でAlpha Vantage向け株価APIリクエスト整形を追加し、typecheck/test/build/E2EとPR #7 CI successで確認した。G013でlocalStorage銘柄データの破損・非配列・正規化dropを検出し、自動保存停止、raw退避、保存失敗通知、使用量警告を追加し、typecheck/test/build/E2EとPR #8 CI successで確認した。G013.1で同一raw退避キー再利用、退避キー3件上限、localStorage SecurityError保護、破損起動E2Eを追加し、pnpm/npmのtypecheck/test/build/E2EとPR #9 CI successで確認した。G014aで復元前自動スナップショットと読み込み/保存文言分離を追加し、pnpm typecheck/test/build/E2EとPR #10 CI successで確認した。G014bで保存再開UI、退避データ管理、通常バックアップからの退避キー除外を追加し、pnpm typecheck/test/build/E2EとPR #11 CI successで確認した。G015でバックアップ機微情報検出のsk-境界条件を修正し、risk/task系IDの誤検出防止と実sk形式検出維持をunit testで確認し、pnpm typecheck/test/build/E2EとPR #12 CI successで確認した。",
+    "verification":  "README.md, package.json, src, scripts の存在を確認。G006で株価/業績APIの実取得をサーバー側Route Handler経由へ統一。G007で日本株/米国株のティッカー・地域・通貨正規化とfixture/stub検証を追加。G008でRSI(14)とSMA25/75クロス参考シグナルを追加。G009でOpenAI Responses後方互換を維持しつつOpenAI互換Chat Completions経路を追加し、typecheck/test/build/E2EとPR #4 CI successで確認した。G010でRSI(14) 50以上とSMA25/75ゴールデンクロスをトレンド強さスコアへ加点する実装を追加し、typecheck/test/build/E2EとPR #5 CI successで確認した。G011で非秘密のLLM設定要約APIと設定画面表示を追加し、typecheck/test/build/E2EとPR #6 CI successで確認した。G012でAlpha Vantage向け株価APIリクエスト整形を追加し、typecheck/test/build/E2EとPR #7 CI successで確認した。G013でlocalStorage銘柄データの破損・非配列・正規化dropを検出し、自動保存停止、raw退避、保存失敗通知、使用量警告を追加し、typecheck/test/build/E2EとPR #8 CI successで確認した。G013.1で同一raw退避キー再利用、退避キー3件上限、localStorage SecurityError保護、破損起動E2Eを追加し、pnpm/npmのtypecheck/test/build/E2EとPR #9 CI successで確認した。G014aで復元前自動スナップショットと読み込み/保存文言分離を追加し、pnpm typecheck/test/build/E2EとPR #10 CI successで確認した。G014bで保存再開UI、退避データ管理、通常バックアップからの退避キー除外を追加し、pnpm typecheck/test/build/E2EとPR #11 CI successで確認した。G015でバックアップ機微情報検出のsk-境界条件を修正し、risk/task系IDの誤検出防止と実sk形式検出維持をunit testで確認し、pnpm typecheck/test/build/E2EとPR #12 CI successで確認した。G016で銘柄登録フォームのティッカーのみ必須表示と任意項目placeholderを追加し、ティッカーのみ登録をE2Eで確認した。",
     "risks":  "表示スコアとRSI/SMAクロスは機械的集計であり投資判断ではない。RSI閾値、SMA window、各重みの最終確定は運用後に人間が判断する。node_modules や .next は index 対象外。実APIキーはサーバー側環境変数のみで扱い、ブラウザ/localStorage/API設定要約には保存・表示しない。Alpha Vantageのapikeyはサーバーから外部APIへ送るURLにのみ付与し、クライアント応答には出さない。DeepSeekやAlpha Vantageなどのライブ疎通は人間が実キーを設定して手動確認する。localStorageは引き続きブラウザ保存のため、実データ投入前後はバックアップJSONを保存する。"
 }

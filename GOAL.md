@@ -494,6 +494,45 @@ Goal map note:
 |---|---|---|---|---|---|---|
 | G015 | accepted | manager | codex-verifiable | G014b merged to main | backup secret scan false-positive fix | local validation, PR #12, and GitHub Actions CI succeeded; main merge remains human |
 
+## G016 Stock Form Optional Fields Update
+
+Status: accepted, PR #13 CI succeeded; main merge remains human
+
+Outcome target: make the stock registration form accurately communicate that only
+the ticker is required, while company name, market, and sector can remain blank.
+
+Implementation:
+
+- Add required wording to the ticker label.
+- Add optional wording and explanatory placeholders to company name, market, and sector.
+- Add a read-only inferred-market preview when ticker is entered and market is blank.
+- Preserve existing submit validation and normalization / inference logic.
+- Add E2E coverage for ticker-only registration.
+
+Current evidence:
+
+- RED: `pnpm run test:e2e -- --reporter=line` failed before the UI fix because `ティッカー（必須）` was not visible.
+- GREEN: `pnpm run test:e2e -- --reporter=line` passed after the UI fix, 6 passed.
+- `pnpm run typecheck`: success
+- `pnpm run test`: success
+- `pnpm run build`: success
+- `pnpm run test:e2e -- --reporter=line`: success, 6 passed
+- API key / secret scan: no real key found; hits are env var names, docs, server-side adapters, and test fake values.
+
+PR / CI:
+
+- PR: #13, `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/13`
+- Branch: `codex/g016-stock-form-optional-fields`
+- Commit: `14a3af5 fix: clarify optional stock form fields`
+- CI run: `29030019800`
+- CI conclusion: `success`
+
+Goal map note:
+
+| ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
+|---|---|---|---|---|---|---|
+| G016 | accepted | manager | codex-verifiable | G015 merged to main | stock form optional-field clarity | local validation, PR #13, and GitHub Actions CI succeeded; main merge remains human |
+
 Goal map note:
 
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |

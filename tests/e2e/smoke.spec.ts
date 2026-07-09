@@ -45,6 +45,30 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => window.localStorage.clear());
 });
 
+test("stock form clearly marks only ticker as required and allows ticker-only registration", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByTestId("stock-list")).toBeVisible();
+  await page.getByTestId("create-stock").click();
+
+  await expect(page.getByText("ティッカー（必須）")).toBeVisible();
+  await expect(page.getByText("会社名（空欄可）")).toBeVisible();
+  await expect(page.getByText("市場（空欄可）")).toBeVisible();
+  await expect(page.getByText("セクター（空欄可）")).toBeVisible();
+  await expect(page.getByTestId("company-name-input")).toHaveAttribute("placeholder", "空欄の場合はティッカーを表示名として使用します");
+  await expect(page.getByTestId("market-input")).toHaveAttribute("placeholder", "空欄で自動推定されます（例: 東証 / NASDAQ）");
+  await expect(page.getByTestId("sector-input")).toHaveAttribute("placeholder", "空欄でも登録できます（後で編集可能）");
+
+  await page.getByTestId("ticker-input").fill("E2EONLY");
+  await expect(page.getByTestId("inferred-market-preview")).toContainText("未入力の場合の推定市場");
+  await page.getByTestId("save-stock").click();
+
+  await expect(page.getByTestId("stock-detail")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "E2EONLY" })).toBeVisible();
+  await page.getByTestId("detail-back").click();
+  await expect(page.locator("tr", { hasText: "E2EONLY" })).toBeVisible();
+});
+
 test("main research flow stays usable without real LLM", async ({ page }) => {
   await page.goto("/");
 
