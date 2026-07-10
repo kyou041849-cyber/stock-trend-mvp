@@ -19,7 +19,7 @@ stock-trend-mvp のベータ版開始時点を、Gitで戻せる状態にし、�
 
 ## Current Milestone
 
-G014b: localStorage復帰導線UI + 退避データ管理。
+G017: 裸の4桁ティッカーのJP自動推定 + 市場プレビュー文言の改善。
 
 ## Root Done Evidence
 
@@ -76,6 +76,7 @@ G014b: localStorage復帰導線UI + 退避データ管理。
 | G013.1 | accepted | manager | codex-verifiable | G013 merged to main | none | localStorage安全性の仕上げ | local validation, PR #9, and GitHub Actions CI succeeded; main merge remains human | [goals/G013_1_LOCALSTORAGE_POLISH.md](goals/G013_1_LOCALSTORAGE_POLISH.md) |
 | G014a | accepted | manager | codex-verifiable | G013.1 merged to main | none | 復元前自動スナップショット + 文言修正 | local validation, PR #10, and GitHub Actions CI succeeded; main merge remains human | [goals/G014A_RESTORE_SNAPSHOT.md](goals/G014A_RESTORE_SNAPSHOT.md) |
 | G014b | accepted | manager | codex-verifiable | G014a merged to main | none | localStorage復帰導線UI + 退避データ管理 | local validation, PR #11, and GitHub Actions CI succeeded; main merge remains human | [goals/G014B_RECOVERY_UI.md](goals/G014B_RECOVERY_UI.md) |
+| G017 | accepted | manager | codex-verifiable | G016 merged to main | none | 裸の4桁ティッカーのJP自動推定 + 市場プレビュー文言の改善 | local validation, PR #14, and GitHub Actions CI succeeded; main merge remains human | [goals/G017_BARE_JP_TICKER_INFERENCE.md](goals/G017_BARE_JP_TICKER_INFERENCE.md) |
 
 ## Human-Needed Queue / Checkpoints
 
@@ -819,3 +820,40 @@ Goal map note:
 | ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
 |---|---|---|---|---|---|---|
 | G014b | accepted | manager | codex-verifiable | G014a merged to main | localStorage復帰導線UI + 退避データ管理 | local validation, PR #11, and GitHub Actions CI succeeded; main merge remains human |
+
+## G017 Bare JP Ticker Inference Update
+
+Status: accepted, PR #14 CI succeeded; main merge remains human
+
+Outcome target: 市場欄が空のとき、裸の4桁純数字ティッカーをJP / `東証` / `JPY`として推定し、推定不能時の市場プレビュー文言を後から編集できる表現へ改善する。
+
+Implementation:
+
+- `inferMarketRegion` now keeps explicit JP/US market input authoritative before ticker fallbacks.
+- Blank-market `.T` tickers and exactly four-digit numeric tickers infer JP.
+- `normalizeMarket("", "7203")` returns `東証`.
+- `inferCurrency("", "7203")` returns `JPY`.
+- Stock form preview now avoids `未推定` and shows an edit-later message when inference is unavailable.
+
+Validation:
+
+- RED: `pnpm run test` failed before the fix because `inferMarketRegion("", "7203")` returned `OTHER`.
+- `pnpm run typecheck`: success
+- `pnpm run test`: success
+- `pnpm run build`: success
+- `pnpm run test:e2e -- --reporter=line`: success, 6 passed
+- API key / secret scan: no real key found; hits are env var names, docs, existing server-side adapters, and test fake values
+
+PR / CI:
+
+- PR: #14, `https://github.com/kyou041849-cyber/stock-trend-mvp/pull/14`
+- Branch: `codex/g017-bare-jp-ticker-inference`
+- Commit: `20589c2 fix: infer bare JP tickers in stock form`
+- CI run: `29057916443`
+- CI conclusion: `success`
+
+Goal map note:
+
+| ID | Status | Owner | Acceptance | Depends On | Outcome | Evidence |
+|---|---|---|---|---|---|---|
+| G017 | accepted | manager | codex-verifiable | G016 merged to main | 裸の4桁ティッカーのJP自動推定 + 市場プレビュー文言の改善 | local validation, PR #14, and GitHub Actions CI succeeded; main merge remains human |

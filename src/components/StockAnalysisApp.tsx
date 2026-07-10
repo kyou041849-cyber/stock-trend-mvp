@@ -713,7 +713,12 @@ function FormView({
   const updateField = (field: keyof StockFormState, value: string) => setForm((current) => ({ ...current, [field]: value }));
   const inferredMarket = form.market.trim() || !form.ticker.trim()
     ? ""
-    : normalizeMarket("", normalizeTicker(form.ticker)) || "未推定";
+    : normalizeMarket("", normalizeTicker(form.ticker));
+  const marketPreviewText = form.market.trim() || !form.ticker.trim()
+    ? ""
+    : inferredMarket
+      ? `未入力の場合の推定市場: ${inferredMarket}`
+      : "市場・通貨は登録後に編集できます";
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -734,7 +739,7 @@ function FormView({
           <Field label="会社名（空欄可）"><input data-testid="company-name-input" className={inputClassName()} placeholder="空欄の場合はティッカーを表示名として使用します" value={form.companyName} onChange={(event) => updateField("companyName", event.target.value)} /></Field>
           <Field label="市場（空欄可）">
             <input data-testid="market-input" className={inputClassName()} placeholder="空欄で自動推定されます（例: 東証 / NASDAQ）" value={form.market} onChange={(event) => updateField("market", event.target.value)} />
-            {inferredMarket ? <p data-testid="inferred-market-preview" className="text-xs font-semibold text-slate-500">未入力の場合の推定市場: {inferredMarket}</p> : null}
+            {marketPreviewText ? <p data-testid="inferred-market-preview" className="text-xs font-semibold text-slate-500">{marketPreviewText}</p> : null}
           </Field>
           <Field label="セクター（空欄可）"><input data-testid="sector-input" className={inputClassName()} placeholder="空欄でも登録できます（後で編集可能）" value={form.sector} onChange={(event) => updateField("sector", event.target.value)} /></Field>
           <Field label="メモ"><textarea data-testid="memo-input" className={inputClassName("min-h-28 sm:col-span-2")} value={form.memo} onChange={(event) => updateField("memo", event.target.value)} /></Field>

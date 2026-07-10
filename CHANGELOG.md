@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- G017: Infer blank-market four-digit numeric tickers such as `7203` as JP / `東証`, while keeping explicit market input authoritative and improving unknown-market preview wording.
 - G016: Clarify that only ticker is required in the stock registration form; company name, market, and sector are marked as optional with explanatory placeholders.
 - G015: Fix backup sensitive-value scanning so normal app IDs containing `risk-`, `task-`, or `...-task-...` are not mistaken for `sk-` API keys.
 

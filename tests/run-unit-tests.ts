@@ -80,6 +80,9 @@ import {
 } from "../src/lib/marketApiParsing";
 import {
   currencyForMarketRegion,
+  inferCurrency,
+  inferMarketRegion,
+  normalizeMarket,
   normalizeTickerForMarket,
   resolveMarketRegion,
 } from "../src/lib/normalization";
@@ -956,6 +959,17 @@ async function run(): Promise<void> {
   assert.equal(normalizeTickerForMarket("7203", "JP"), "7203.T");
   assert.equal(normalizeTickerForMarket("7203.T", "JP"), "7203.T");
   assert.equal(normalizeTickerForMarket("aapl", "US"), "AAPL");
+  assert.equal(inferMarketRegion("", "7203"), "JP");
+  assert.equal(inferMarketRegion("", "9984"), "JP");
+  assert.equal(inferMarketRegion("", "AAPL"), "OTHER");
+  assert.equal(inferMarketRegion("", "SPCX"), "OTHER");
+  assert.equal(inferMarketRegion("", "7203.T"), "JP");
+  assert.equal(inferMarketRegion("NYSE", "7203"), "US");
+  assert.equal(inferMarketRegion("東証", "AAPL"), "JP");
+  assert.equal(normalizeMarket("", "7203"), "東証");
+  assert.equal(inferCurrency("", "7203"), "JPY");
+  assert.equal(inferMarketRegion("", "123"), "OTHER");
+  assert.equal(inferMarketRegion("", "72030"), "OTHER");
   assert.equal(resolveMarketRegion({ ticker: "7203", region: "JP" }), "JP");
   assert.equal(resolveMarketRegion({ ticker: "AAPL", market: "NASDAQ" }), "US");
   assert.equal(currencyForMarketRegion("JP"), "JPY");

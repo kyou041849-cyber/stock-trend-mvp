@@ -8,12 +8,16 @@ export function inferMarketRegion(market: string, ticker: string): MarketRegion 
   const normalizedMarket = market.trim().toUpperCase();
   const normalizedTicker = normalizeTicker(ticker);
 
-  if (normalizedMarket.includes("東証") || normalizedMarket.includes("TSE") || normalizedTicker.endsWith(".T")) {
+  if (normalizedMarket.includes("東証") || normalizedMarket.includes("TSE")) {
     return "JP";
   }
 
   if (["NASDAQ", "NYSE", "AMEX", "US"].some((keyword) => normalizedMarket.includes(keyword))) {
     return "US";
+  }
+
+  if (normalizedTicker.endsWith(".T") || /^\d{4}$/.test(normalizedTicker)) {
+    return "JP";
   }
 
   return "OTHER";
